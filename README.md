@@ -14,8 +14,26 @@ https://arxiv.org/pdf/1003.0146.pdf
 https://arxiv.org/pdf/1802.09127.pdf
 http://www.cs.cmu.edu/~lizhou/papers/LCB_IJCAI16.pdf
 
+## tech
+[ ] pytorch or tensorflow
+[ ] Docker Container
+[ ] SQL
+[ ] AWS
+[ ] some visualization
+[ ] ec2 & s3
+[ ] test
+[ ] build/makefile
+[ ] spark or hadoop
+[ ] deal with large data
+
 ## TODO
-[ ] do eda on mushroom data
+[v] do eda on mushroom data
+[v] write mushroom data sampler
+[v] write basic policies for mushroom
+[ ] write tests for methods so far
+[ ] write a basic thompson sampling method
+[ ] write a hybrid method
+[ ] write a diagnostic, loss, evaluation workflow (plots)
     
 
 ## start simple
