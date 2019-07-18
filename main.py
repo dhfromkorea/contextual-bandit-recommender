@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
+from pprint import pprint as pp
 
 
 # we should forget about small efficiencies
@@ -70,8 +71,6 @@ def sample_mushroom(X, y,
     return contexts, r_eats, r_no_eats, opt_acts
 
 
-
-
 def main(arg1):
     """TODO: Docstring for main.
 
@@ -100,13 +99,14 @@ def main(arg1):
     smp = SampleMeanPolicy(n_actions=2, lr=0.1)
     egp = EpsilonGreedyPolicy(n_actions=2, lr=0.1, epsilon=0.1)
     ucbp = UCBPolicy(n_actions=2, lr=0.01)
+    lrp = LinearRegressorPolicy(n_actions=2)
 
     policies = [rp, smp, egp, ucbp]
     results = {}
 
 
     # simulate the problem T steps
-    T = 100000
+    T = 5 * (10 ** 4)
     mushrooms = sample_mushroom(X,
                                 y,
                                 T,
@@ -142,8 +142,9 @@ def main(arg1):
     print(results)
 
 
+# context-free
 
-
+# no exploration
 class RandomPolicy(object):
     def __init__(self, n_actions):
         self._n_actions = n_actions
@@ -155,6 +156,7 @@ class RandomPolicy(object):
         pass
 
 
+# no exploration
 class SampleMeanPolicy(object):
     def __init__(self, n_actions, lr=0.1):
         self._Q = np.zeros(n_actions)
@@ -172,6 +174,7 @@ class SampleMeanPolicy(object):
         self._Q[a_t] = 1/n_j * (self._Q[a_t] *(n_j - 1) + r_t)
 
 
+# exploration (no annealing)
 class EpsilonGreedyPolicy(object):
     def __init__(self, n_actions, lr=0.1, epsilon=0.1):
         self._n_actions = n_actions
@@ -179,6 +182,7 @@ class EpsilonGreedyPolicy(object):
         self._act_count = np.zeros(n_actions)
         self._lr = lr
         self._eps = epsilon
+        self._t = 0
 
     def choose_action(self, c_t):
         u = np.random.uniform()
@@ -188,6 +192,11 @@ class EpsilonGreedyPolicy(object):
             # choose random
             a_t = np.random.choice(np.arange(self._n_actions))
         self._act_count[a_t] += 1
+
+        # anneal eps
+        self._eps = (1 - self._lr)**self._t
+
+        self._t += 1
         return a_t
 
     def update(self, a_t, c_t, r_t):
@@ -195,7 +204,7 @@ class EpsilonGreedyPolicy(object):
         n_j = self._act_count[a_t]
         self._Q[a_t] = 1/n_j * (self._Q[a_t] *(n_j - 1) + r_t)
 
-
+# exploration (annealing)
 class UCBPolicy(object):
     def __init__(self, n_actions, lr=0.1):
         self._n_actions = n_actions
@@ -230,6 +239,58 @@ class UCBPolicy(object):
         #self._Q[a_t] = self._Q[a_t] + self._lr * (r_t - self._Q[a_t])
 
 
+
+# context-based
+# idea
+#      - build a classifer and based on good/bad prediction, choose an optimal
+#      - to have a fair game, apply online classification training
+#      - but you cannot observe the true class
+
+from sklearn.linear_model import SGDRegressor
+class LinearRegressorPolicy(object):
+    """
+    trains SVM with SGD
+
+    Q(a_t,c_t) estimates E[R_t | a_t, c_t]
+
+    """
+    def __init__(self, n_actions, loss="squared_loss", epsilon=0.1, alpha=1e-4):
+        self._n_actions = n_actions
+        self._clf = SGDRegressor(alpha=alpha, loss=loss)
+        self._eps = epsilon
+        self._alpha = alpha
+        self._t = 0
+
+    def choose_action(self, c_t):
+        scores = []
+
+        u = np.random.uniform()
+        if u > self._eps:
+            for a_j in range(self._n_actions):
+                x_t = [a_j] + list(c_t)
+                score = self._clf.predict(x_t)
+                scores.append(score)
+
+            a_t = np.argmax(scores)
+        else:
+            a_t = np.random.choice(np.arange(self._n_actions))
+
+
+        # anneal eps
+        self._eps = (1 - self._alpha)**self._t
+
+        self._t += 1
+
+        return a_t
+
+    def update(self, a_t, c_t, r_t):
+        """
+        a_t: int
+        c_t: list of int
+        """
+        # ignores context
+        x_t = [a_t] + list(c_t)
+        self._clf.partial_fit(x_t, r_t, classes=np.arange(self._n_actions))
 
 
 if __name__ == "__main__":
