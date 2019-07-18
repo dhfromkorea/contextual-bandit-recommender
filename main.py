@@ -100,8 +100,10 @@ def main(arg1):
     egp = EpsilonGreedyPolicy(n_actions=2, lr=0.1, epsilon=0.1)
     ucbp = UCBPolicy(n_actions=2, lr=0.01)
     lrp = LinearRegressorPolicy(n_actions=2)
+    linucbp = LinUCBPolicy(n_actions=2)
 
-    policies = [rp, smp, egp, ucbp]
+    policies = [rp, smp, egp, ucbp, linucbp]
+
     results = {}
 
 
@@ -137,9 +139,16 @@ def main(arg1):
 
             t += 1
 
-        results[i] = (np.mean(rewards), np.mean(regrets))
+        results[i] = {
+                #"regrets": regrets,
+                #"rewards": rewards,
+                "cum_regrets": np.sum(regrets),
+                "simple_regret": np.mean(regrets[-500:])
+                }
 
-    print(results)
+        #results[i] = (np.mean(rewards), np.mean(regrets))
+
+    pp(results)
 
 
 # context-free
@@ -154,7 +163,6 @@ class RandomPolicy(object):
 
     def update(self, a_t, c_t, r_t):
         pass
-
 
 # no exploration
 class SampleMeanPolicy(object):
@@ -292,6 +300,119 @@ class LinearRegressorPolicy(object):
         x_t = [a_t] + list(c_t)
         self._clf.partial_fit(x_t, r_t, classes=np.arange(self._n_actions))
 
+
+class LinUCBPolicy(object):
+    def __init__(self, n_actions, lr=0.1):
+        self._n_actions = n_actions
+        self._act_count = np.zeros(n_actions, dtype=int)
+        self._lr = lr
+        self._A = [None] * self._n_actions
+        self._b = [None] * self._n_actions
+        self._theta = [None] * self._n_actions
+
+        delta = 0.01
+        self._alpha = 1 + np.sqrt(np.log(2/delta)/2)
+
+        self._t = 0
+        self._train_freq = 1000
+
+    def choose_action(self, c_t):
+        """
+
+        compose x_{t,a} = concat(a_t, c_t) for all actions
+        solve X_a w_a = r_a
+
+        where
+        c_t \in R^{d - 1 x 1}
+        b_a \in R^{m x 1}
+        D_a (n_j x d): design matrix for a_j
+        c_a (n_j x 1): rewards corresponding to D_a
+        theta (d x 1)
+
+        solve D_a theta_a = c_a
+        theta_a = (D_a^TD_a + I_d)^{-1}
+        A_a = D_a^TD_a + I_d
+
+        I_d perturbation singular
+        X_a (d x d):
+
+        alpha: constant coefficient for ucb
+        at least 1 - delta probability
+        alpha = 1 + sqrt(ln(2/delta)/2)
+        copmute ucb
+
+        assumes alpha given
+
+        access to theta_a for all actions
+        """
+        x_t = [np.array([j] + list(c_t)) for j in range(self._n_actions)]
+
+        d = len(c_t) + 1
+
+        if self._t % self._train_freq == 0:
+            # solve linear systems for all actions
+            for j in range(self._n_actions):
+
+                if self._A[j] is None:
+                    self._A[j] = np.identity(d)
+                    self._b[j] = np.zeros(d)
+
+                self._theta[j] = np.linalg.lstsq(self._A[j], self._b[j], rcond=None)[0]
+
+
+
+        # estimate an action value
+        Q = np.zeros(self._n_actions)
+        ubc_t = np.zeros(self._n_actions)
+
+        for j in range(self._n_actions):
+            # compute upper bound
+            k_ta = x_t[j].T.dot(np.linalg.inv(self._A[j])).dot(x_t[j])
+            ubc_t[j] = self._alpha * np.sqrt(k_ta)
+            Q[j] = self._theta[j].dot(x_t[j]) + ubc_t[j]
+
+        # todo: tiebreaking
+        a_t = np.argmax(Q)
+
+        if self._t % 10000 == 0:
+            print("Q est {}".format(Q))
+            print("ubc {} at {}".format(ubc_t[a_t], self._t))
+
+        self._t += 1
+
+        return a_t
+
+    def update(self, a_t, c_t, r_t):
+        """
+        """
+        # d x 1
+        x_t = np.array([a_t] + list(c_t))
+        # d x d
+        self._A[a_t] += x_t.dot(x_t.T)
+        # d x 1
+        self._b[a_t] += r_t * x_t
+
+
+class LinUCBHybridPolicy(object):
+
+    """Docstring for LinUCBHybridPolicy. """
+
+    def __init__(self):
+        """TODO: to be defined1. """
+        pass
+
+
+
+
+
+# thompson sampling
+class ThompsonSampling(object):
+
+    """Docstring for ThompsonSampling. """
+
+    def __init__(self):
+        """TODO: to be defined1. """
+        pass
 
 if __name__ == "__main__":
     args = []

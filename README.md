@@ -8,6 +8,12 @@
 - test
 - build
 
+tutorial
+reproduce
+https://arxiv.org/pdf/1003.0146.pdf
+https://arxiv.org/pdf/1802.09127.pdf
+http://www.cs.cmu.edu/~lizhou/papers/LCB_IJCAI16.pdf
+
 ## TODO
 [ ] do eda on mushroom data
     
@@ -22,12 +28,15 @@
 - (next) big dataset
 
 ### Contextual bandit
+reproduce
 https://arxiv.org/pdf/1003.0146.pdf
 https://arxiv.org/pdf/1802.09127.pdf
+http://www.cs.cmu.edu/~lizhou/papers/LCB_IJCAI16.pdf
+
+
 http://courses.cms.caltech.edu/cs101.2/slides/cs101.2-02-Bandits-notes.pdf
 https://web.stanford.edu/~bvr/pubs/TS_Tutorial.pdf
 http://chercheurs.lille.inria.fr/~ghavamza/RL-EC-Lille/Lecture%20Bandit.pdf
-http://www.cs.cmu.edu/~lizhou/papers/LCB_IJCAI16.pdf
 
 
 ### RL
