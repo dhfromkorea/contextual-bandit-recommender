@@ -8,6 +8,10 @@
 - test
 - build
 
+## TODO
+[ ] do eda on mushroom data
+    
+
 ## start simple
 
 - small toy dataset, suitable for contextual bandit (discrete random ..)
@@ -27,6 +31,7 @@ http://www.cs.cmu.edu/~lizhou/papers/LCB_IJCAI16.pdf
 
 
 ### RL
+https://gdmarmerola.github.io/ts-for-mushroom-bandit/
 http://jmlr.csail.mit.edu/papers/volume6/shani05a/shani05a.pdf
 https://arxiv.org/pdf/1810.12027.pdf
 
@@ -64,3 +69,6 @@ https://hci.stanford.edu/courses/cs448g/a2/files/map_reduce_tutorial.pdf
 http://web.stanford.edu/class/cs246/slides/07-recsys1.pdf
 http://web.stanford.edu/class/cs246/slides/08-recsys2.pdf
 
+
+### data science tips
+https://elitedatascience.com/python-data-wrangling-tutorial
