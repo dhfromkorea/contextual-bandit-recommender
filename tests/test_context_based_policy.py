@@ -32,16 +32,17 @@ def mushrooms():
                                 )
     return mushrooms
 
-#def test_linucb_policy(mushrooms):
-#
-#    # define a solver
-#    linucbp = LinUCBPolicy(n_actions=2)
-#    policies = [linucbp]
-#
-#    results = simulate_contextual_bandit(mushrooms, policies)
-#
-#    # must avoid getting stuck at no eating
-#    assert results[0]["simple_rewards"] > 2.0
+
+def test_linucb_policy(mushrooms):
+
+    # define a solver
+    linucbp = LinUCBPolicy(n_actions=2)
+    policies = [linucbp]
+
+    results = simulate_contextual_bandit(mushrooms, policies)
+
+    # must avoid getting stuck at no eating
+    assert results[0]["simple_rewards"] > 2.0
 
 
 def test_linregressor_policy(mushrooms):
