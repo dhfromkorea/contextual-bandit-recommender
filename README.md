@@ -1,15 +1,8 @@
-- AWS, SQL and container orchestration 
-- Spark - python
-- AWS
-- some DB
-- some tensorflow or pytorch
-- some numpy or pandas
-- some visualization
-- test
-- build
+[![Build Status](https://travis-ci.com/dhfromkorea/contextual-bandit-recommender.svg?token=LpCqnxSYFM2Cg2x3ixjz&branch=master)](https://travis-ci.com/dhfromkorea/contextual-bandit-recommender)
 
-tutorial
-reproduce
+# goal
+
+## reproduce
 https://arxiv.org/pdf/1003.0146.pdf
 https://arxiv.org/pdf/1802.09127.pdf
 http://www.cs.cmu.edu/~lizhou/papers/LCB_IJCAI16.pdf
