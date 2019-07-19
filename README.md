@@ -41,7 +41,9 @@ https://github.com/david-cortes/contextualbandits
 [v] write basic policies for mushroom
 [v] write tests for methods so far
 [v] decouple tests from real datasets
+[ ] write a Linear-Gaussian bandit sampler?
 [ ] write a basic thompson sampling method
+[ ] write a test for thompson sampling (beta bernoulli)
 [ ] consider using mock (at this point no!, arguing from premature optimization)
 [ ] pull next data: jester
 [ ] pull next data: movielens
