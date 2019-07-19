@@ -1,12 +1,11 @@
 """
 """
 import numpy as np
-import pandas as pd
-from sklearn.preprocessing import LabelEncoder
 from pprint import pprint as pp
 
 
 from datasets.mushroom.sample_data import sample_mushroom
+from datasets.preprocessing import load_data
 from methods.context_free_policy import EpsilonGreedyPolicy, RandomPolicy, SampleMeanPolicy
 from methods.context_based_policy import LinUCBPolicy, LinUCBHybridPolicy, LinearRegressorPolicy
 
@@ -15,32 +14,6 @@ from methods.context_based_policy import LinUCBPolicy, LinUCBHybridPolicy, Linea
 # premature optimization is the root of the evil
 # yet, we should not pass up opportunities
 # for the critical 3%
-
-def preprocess_data(df):
-    """TODO: Docstring for preprocess_data.
-
-
-    Parameters
-    ----------
-    arg1 : TODO
-
-    Returns
-    -------
-    (X, y)
-
-    X:
-    y:
-
-    """
-    # preprocessing mushroom data
-    df_ = pd.get_dummies(df.iloc[:, 1:])
-    features, X = df_.columns, df_.values
-    y = df.iloc[:, 0].values
-    label_encoder_y = LabelEncoder()
-    # y = 1 -> poisonous, y = 0 -> edible
-    y = label_encoder_y.fit_transform(y)
-
-    return X, y
 
 def main(arg1):
     """TODO: Docstring for main.
@@ -55,8 +28,8 @@ def main(arg1):
 
     """
 
-    df = pd.read_csv("datasets/mushrooms.csv")
-    X, y = preprocess_data(df)
+    X, y = load_data(name="mushroom")
+
 
     # define a solver
     rp = RandomPolicy(n_actions=2)
