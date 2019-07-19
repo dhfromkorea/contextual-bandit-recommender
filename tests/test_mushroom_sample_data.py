@@ -1,6 +1,8 @@
 import pytest
 import numpy as np
 
+from context import sample_mushroom
+
 @pytest.fixture(scope="module")
 def mushroom_data():
     # mock mushroom data
