@@ -2,11 +2,15 @@ import pytest
 import numpy as np
 
 from context import sample_mushroom
-from context import load_data
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def mushroom_data():
-    X, y = load_data(name="mushroom")
+    # mock mushroom data
+    dim_context = 117
+    n_samples = 1000
+    X = np.random.rand(n_samples, dim_context)
+    y = np.random.choice([0, 1], size=n_samples)
+
     return X, y
 
 
@@ -14,11 +18,8 @@ def test_mushroom_preprocessing_and_loading(mushroom_data):
     X, y = mushroom_data
 
     dim_context = 117
-    n_samples = 8124
 
     assert X.shape[1] == dim_context
-    assert X.shape[0] == n_samples
-    assert len(y) == n_samples
     assert set(np.unique(y)) == set([0, 1])
 
 

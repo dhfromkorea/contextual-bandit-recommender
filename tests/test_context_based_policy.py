@@ -7,9 +7,13 @@ import numpy as np
 from context import *
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def mushrooms():
-    X, y = load_data(name="mushroom")
+    # mock mushroom data
+    dim_context = 117
+    n_samples = 1000
+    X = np.random.rand(n_samples, dim_context)
+    y = np.random.choice(np.arange(1), size=n_samples)
 
     T = 10000
     # sample the problem T steps for simulation
