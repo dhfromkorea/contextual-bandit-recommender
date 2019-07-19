@@ -1,11 +1,27 @@
 [![Build Status](https://travis-ci.com/dhfromkorea/contextual-bandit-recommender.svg?token=LpCqnxSYFM2Cg2x3ixjz&branch=master)](https://travis-ci.com/dhfromkorea/contextual-bandit-recommender)
 
 # goal
+price quote recommendation
+discretize price space?
+
+##
+The aim is to create a policy that would maximize the rewards obtained by the agent. The arms might also expire over time and new arms might appear too, leading to the same exploration-exploitation dilemma faced in multi-armed bandits.
+
+The problem is very similar to multi-class or multi-label classification (with the reward being whether the right label was chosen or not), but with the big difference that the right label or set of labels is not known for each observation, only whether the label that was chosen by the agent for each observation was correct or not.
+
+Examples of such scenarios include online advertising, where we only know whether a user clicked an ad that he was presented with, but don't know which other ads he would have clicked; or clinic trials where we know how a person responded to a treatment, but don't know how he would have responded to a different treatment.
+
+While, in general, algorithms for the contextual bandits problem assume continuous rewards in the range [0,1], this package deals only with the case of discrete rewards {0,1}, and only with the case of arms that all see the same covariates.
 
 ## reproduce
 https://arxiv.org/pdf/1003.0146.pdf
 https://arxiv.org/pdf/1802.09127.pdf
 http://www.cs.cmu.edu/~lizhou/papers/LCB_IJCAI16.pdf
+https://arxiv.org/pdf/1811.04383.pdf
+(read cold start)
+
+(check out)
+https://github.com/david-cortes/contextualbandits
 
 ## tech
 [ ] pytorch or tensorflow
@@ -23,15 +39,27 @@ http://www.cs.cmu.edu/~lizhou/papers/LCB_IJCAI16.pdf
 [v] do eda on mushroom data
 [v] write mushroom data sampler
 [v] write basic policies for mushroom
-[ ] write tests for methods so far
+[v] write tests for methods so far
+[v] decouple tests from real datasets
 [ ] write a basic thompson sampling method
+[ ] consider using mock (at this point no!, arguing from premature optimization)
+[ ] pull next data: jester
+[ ] pull next data: movielens
+[ ] pull next data: goodbooks
+[ ] pull next data: price recommendation
+[ ] pull next data: news data
 [ ] write a hybrid method
 [ ] write a diagnostic, loss, evaluation workflow (plots)
     
 
-## start simple
+## questions
+- why not supervised learning if history data is available?
+- at least pretrainining in the batch setting, possible?
+- disjoint model (for each action) is bad, bad computational cost (shared components ignored)
+- build a joint model that computes with input x_t, a_t no?
+- cold start problem
 
-- small toy dataset, suitable for contextual bandit (discrete random ..)
+## start simple
 - write tests
 - write code
 - check performance
@@ -40,9 +68,18 @@ http://www.cs.cmu.edu/~lizhou/papers/LCB_IJCAI16.pdf
 
 ### Contextual bandit
 reproduce
+- [ ] thompson bandit
+- [ ] deep bayesian
+- [ ] latent contextual model
+
 https://arxiv.org/pdf/1003.0146.pdf
 https://arxiv.org/pdf/1802.09127.pdf
 http://www.cs.cmu.edu/~lizhou/papers/LCB_IJCAI16.pdf
+https://papers.nips.cc/paper/4321-an-empirical-evaluation-of-thompson-sampling.pdf
+
+### professional
+https://github.com/bfortuner/vaa3d-api
+
 
 
 http://courses.cms.caltech.edu/cs101.2/slides/cs101.2-02-Bandits-notes.pdf
