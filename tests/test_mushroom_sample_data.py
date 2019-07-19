@@ -36,7 +36,7 @@ def test_sample_mushroom(mushroom_data):
                                 r_no_eat=0.0
                                 )
 
-    contexts, r_eats, r_no_eats, hidden = mushrooms
+    contexts, r_eats, r_no_eats, opt_acts, is_poisonous = mushrooms
 
     dim_context = 117
 
@@ -45,9 +45,6 @@ def test_sample_mushroom(mushroom_data):
 
     assert np.mean(r_no_eats) == 0.0
 
-
-    is_poisonous = hidden["is_poisonous"]
-    opt_acts = hidden["opt_acts"]
 
     # good mush -> must eat
     is_edible  = ~(is_poisonous.astype(bool))
