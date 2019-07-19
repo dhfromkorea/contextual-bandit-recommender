@@ -7,6 +7,9 @@ init:
 test: clean-pyc
 	py.test --verbose --color=yes $(TEST_PATH)
 
+lint:
+	flake8 --exclude=venv/
+
 clean-pyc:
 	find . -name '*.pyc' -delete
 	find . -name '*.pyo' -delete
