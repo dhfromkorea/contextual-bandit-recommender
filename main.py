@@ -6,14 +6,16 @@ from pprint import pprint as pp
 
 from datasets.mushroom.sample_data import sample_mushroom
 from datasets.preprocessing import load_data
-from methods.context_free_policy import EpsilonGreedyPolicy, RandomPolicy, SampleMeanPolicy
-from methods.context_based_policy import LinUCBPolicy, LinUCBHybridPolicy, LinearRegressorPolicy
+from models.context_free_policy import EpsilonGreedyPolicy, RandomPolicy, SampleMeanPolicy, UCBPolicy
+from models.context_based_policy import LinUCBPolicy, LinUCBHybridPolicy, LinearRegressorPolicy
+from simulate import simulate_contextual_bandit
 
 # we should forget about small efficiencies
 # say about 97% of the time
 # premature optimization is the root of the evil
 # yet, we should not pass up opportunities
 # for the critical 3%
+
 
 def main(arg1):
     """TODO: Docstring for main.
@@ -41,8 +43,6 @@ def main(arg1):
 
     policies = [rp, smp, egp, ucbp, linucbp]
 
-    results = {}
-
 
     # simulate the problem T steps
     T = 5 * (10 ** 4)
@@ -56,34 +56,7 @@ def main(arg1):
                                 r_no_eat=0.0
                                 )
 
-    for i, policy in enumerate(policies):
-
-        rewards = np.zeros(T)
-        regrets = np.zeros(T)
-        t = 0
-
-        # can regret be negative?
-        for c_t, r_eat_t, r_no_eat_t, a_opt in zip(*mushrooms):
-            a_t = policy.choose_action(c_t)
-            r_t = a_t * r_eat_t + (1 - a_t) * r_no_eat_t
-
-            policy.update(a_t, c_t, r_t)
-
-            r_t_opt =  a_opt * r_eat_t + (1 - a_opt) * r_no_eat_t
-
-            rewards[t] = r_t
-            regrets[t] = r_t_opt - r_t
-
-            t += 1
-
-        results[i] = {
-                #"regrets": regrets,
-                #"rewards": rewards,
-                "cum_regrets": np.sum(regrets),
-                "simple_regret": np.mean(regrets[-500:])
-                }
-
-        #results[i] = (np.mean(rewards), np.mean(regrets))
+    results = simulate_contextual_bandit(mushrooms, policies)
 
     pp(results)
 
