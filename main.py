@@ -4,10 +4,13 @@ import numpy as np
 from pprint import pprint as pp
 
 
+from datasets.synthetic.sample_data import sample_synthetic
 from datasets.mushroom.sample_data import sample_mushroom
 from datasets.preprocessing import load_data
+
 from models.context_free_policy import EpsilonGreedyPolicy, RandomPolicy, SampleMeanPolicy, UCBPolicy
-from models.context_based_policy import LinUCBPolicy, LinUCBHybridPolicy, LinearRegressorPolicy
+from models.context_based_policy import LinUCBPolicy, LinUCBHybridPolicy
+from models.context_based_policy import LinearRegressorPolicy,LinearGaussianThompsonSamplingPolicy
 from simulate import simulate_contextual_bandit
 
 # we should forget about small efficiencies
@@ -17,7 +20,7 @@ from simulate import simulate_contextual_bandit
 # for the critical 3%
 
 
-def main(arg1):
+def main(args):
     """TODO: Docstring for main.
 
     Parameters
@@ -30,46 +33,93 @@ def main(arg1):
 
     """
 
-    X, y = load_data(name="mushroom")
+    task = args["task"]
+
+    if task == "mushroom":
+        X, y = load_data(name="mushroom")
+        # simulate the problem T steps
+        #n_samples = 5 * (10 ** 4)
+        n_samples = 100
+        context_dim = 117
+        n_actions = 2
+
+        # optimal strategy
+        # if good -> eat
+        # if bad -> not eat
+
+        samples = sample_mushroom(X,
+                                  y,
+                                  n_samples,
+                                  r_eat_good=5.0,
+                                  r_eat_bad_lucky=5.0,
+                                  r_eat_bad_unlucky=-35.0,
+                                  r_eat_bad_lucky_prob=0.2,
+                                  r_no_eat=0.0
+                                  )
+
+    elif task == "synthetic":
+        n_samples = 10000
+        n_actions = 5
+        context_dim = 10
+        samples = sample_synthetic(n_samples, n_actions, context_dim)
+
+    else:
+        raise NotImplementedError
 
 
     # define a solver
-    rp = RandomPolicy(n_actions=2)
-    smp = SampleMeanPolicy(n_actions=2, lr=0.1)
-    egp = EpsilonGreedyPolicy(n_actions=2, lr=0.1, epsilon=0.1)
-    ucbp = UCBPolicy(n_actions=2, lr=0.01)
-    lrp = LinearRegressorPolicy(n_actions=2)
-    linucbp = LinUCBPolicy(n_actions=2)
+    rp = RandomPolicy(n_actions)
+    smp = SampleMeanPolicy(n_actions, lr=0.1)
+    egp = EpsilonGreedyPolicy(n_actions, lr=0.1, epsilon=0.1)
+    ucbp = UCBPolicy(n_actions=n_actions, lr=0.01)
+    lrp = LinearRegressorPolicy(n_actions)
+    linucbp = LinUCBPolicy(n_actions)
+    lgtsp = LinearGaussianThompsonSamplingPolicy(
+                n_actions=n_actions,
+                context_dim=context_dim
+            )
 
-    policies = [rp, smp, egp, ucbp, linucbp]
-
-
-    # simulate the problem T steps
-    T = 5 * (10 ** 4)
-    mushrooms = sample_mushroom(X,
-                                y,
-                                T,
-                                r_eat_good=5.0,
-                                r_eat_bad_lucky=5.0,
-                                r_eat_bad_unlucky=-35.0,
-                                r_eat_bad_lucky_prob=0.5,
-                                r_no_eat=0.0
-                                )
-
-    results = simulate_contextual_bandit(mushrooms, policies)
-
-    pp(results)
+    policies = [rp, smp, egp, ucbp, linucbp, lgtsp]
+    policy_names = ["rp", "smp", "egp", "ucbp", "linucbp", "lgtsp"]
 
 
-# thompson sampling
-class ThompsonSampling(object):
-    """Docstring for ThompsonSampling. """
+    # simulate a bandit over n_samples steps
+    results = simulate_contextual_bandit(samples, n_samples, policies)
 
-    def __init__(self):
-        """TODO: to be defined1. """
-        pass
+
+    # log results
+    cumreg_data = None
+    acts_data = None
+    for i in range(len(policies)):
+        cr = results[i]["cum_regret"][:, None]
+        if cumreg_data is None:
+            cumreg_data = cr
+        else:
+            cumreg_data = np.hstack( (cumreg_data, cr) )
+
+        acts = results[i]["log"][0, :][:, None]
+        if acts_data is None:
+            acts_data = acts
+        else:
+            acts_data = np.hstack( (acts_data, acts) )
+
+    # add opt_acts
+    # assume it's the same across policies
+    acts_opt = results[0]["log"][1, :][:, None]
+    acts_data = np.hstack( (acts_data, acts_opt) )
+
+
+    import pandas as pd
+    df = pd.DataFrame(cumreg_data, columns=policy_names)
+    df.to_csv("{}.cumreg.csv".format(task), header=True, index=False)
+
+    df = pd.DataFrame(acts_data, columns=policy_names + ["opt_p"])
+    df.to_csv("{}.acts.csv".format(task), header=True, index=False)
+
 
 if __name__ == "__main__":
-    args = []
+    args = {}
+    #args["task"] = "mushroom"
+    args["task"] = "synthetic"
     main(args)
 

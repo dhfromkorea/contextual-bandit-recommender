@@ -6,7 +6,7 @@ simulate 1...T steps of contextual bandits
 """
 import numpy as np
 
-def simulate_contextual_bandit(data, n_samples, policies=[]):
+def simulate_contextual_bandit(data, n_samples, policies):
     """
     data: tuple
          a T-length sequence of contexts
@@ -15,48 +15,46 @@ def simulate_contextual_bandit(data, n_samples, policies=[]):
     returns:
         results: cumulative rewards, cumulative regret, simple regret, simple reward
         diagnostics
+
+
+    (diag)
+    - simple reward: 500 steps average
+    - cum rewards: over T steps
+    - action value estimates: snapshot every n steps (x axis: actions, y: value)
+
+    (eval)
+    - simple regret
+    - cum regrets
+    - regret: over time (peak)
     """
     # infer T
-
-    results = {}
+    results = [None] * len(policies)
 
     for i, policy in enumerate(policies):
+        results[i] = {}
+        # log a_t, r_t, del_t (regret)
+        results[i]["log"] = np.zeros((4, n_samples))
 
-        rewards = np.zeros(n_samples)
-        regrets = np.zeros(n_samples)
         t = 0
 
-        # can regret be negative?
-        for c_t, r_acts, a_opt, _ in zip(*data):
-        #for i in range(n_samples):
-            c_t = data[0][i]
-            r_acts = data[1][i]
-            a_opt = data[2][i]
-
+        for c_t, r_acts, a_t_opt, _ in zip(*data):
             a_t = policy.choose_action(c_t)
             r_t = r_acts[a_t]
 
-            #r_t = a_t * r_eat_t + (1 - a_t) * r_no_eat_t
-
             policy.update(a_t, c_t, r_t)
 
-            r_t_opt =  r_acts[a_opt]
+            r_t_opt =  r_acts[a_t_opt]
 
-            rewards[t] = r_t
-            regrets[t] = r_t_opt - r_t
+            regret_t = r_t_opt - r_t
+
+            results[i]["log"][:, t] = [a_t, a_t_opt, r_t, regret_t]
 
             t += 1
 
-        results[i] = {
-                "policy": policy,
-                "regrets": regrets,
-                "rewards": rewards,
-                "cum_rewards": np.sum(rewards),
-                "simple_rewards": np.mean(rewards[-500:]),
-                "cum_regret": np.sum(regrets),
-                "simple_regret": np.mean(regrets[-500:])
-                }
+        results[i]["policy"] = policy
+        regrets = results[i]["log"][3, :]
+        results[i]["cum_regret"] = np.cumsum(regrets)
+        results[i]["simple_regret"] = np.sum(regrets[-500:])
 
-        #results[i] = (np.mean(rewards), np.mean(regrets))
     return results
 
