@@ -9,9 +9,7 @@ from sklearn.preprocessing import LabelEncoder
 
 
 datasets_dir = os.path.abspath(os.path.dirname(__file__))
-print("datasets_dir", datasets_dir)
 mushroom_data_path = os.path.join(datasets_dir, "mushroom/mushroom.csv")
-print("mushroom_data_path", mushroom_data_path)
 
 
 def load_data(name="mushroom"):
