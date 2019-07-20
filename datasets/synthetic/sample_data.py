@@ -50,8 +50,8 @@ def sample_synthetic(n_samples, n_actions=5, context_dim=10, sigma=3.0):
 
     # define generating process
     # context dimension
-    d = context_dim
-    W = np.random.rand(n_actions, d)
+    np.random.seed(0)
+    W = np.random.rand(n_actions, context_dim)
     # independent covariance matrix
     # for convenience, isotropic gaussian
     cov = sigma**2 * np.eye(n_actions)
@@ -63,7 +63,7 @@ def sample_synthetic(n_samples, n_actions=5, context_dim=10, sigma=3.0):
 
     for t in range(n_samples):
         # generate sparse context
-        x_t = np.random.randint(low=0, high=5, size=d)
+        x_t = np.random.randint(low=-5, high=5, size=context_dim)
         mean = np.dot(W, x_t)
 
         r_acts = np.random.multivariate_normal(mean, cov=cov, size=1)
