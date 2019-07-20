@@ -49,17 +49,18 @@ want to understand
 - performance
 - diagnostics on a possible cause: bias or variance?
 
-### highest priority
+#data_to_persist## highest priority
 [ ] some visualization/diagnostics (eval metrics)
-[ ] pull next data: news data
-[ ] write new_data sampler
 [ ] write test for it
 [ ] run diagnostics and fix bugs in models (bias term issue)
-[ ] AWS (so fast --- all tests passing)
 
 ### mid priority
-[ ] Blogpost
+[ ] pull next data: news data
+[ ] write new_data sampler
 [ ] ec2 & s3
+[ ] AWS (so fast --- all tests passing)
+
+[ ] Blogpost
 [ ] pytorch or tensorflow
 
 ### low priority
