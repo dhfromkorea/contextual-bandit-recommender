@@ -61,29 +61,45 @@ class LinearRegressorPolicy(object):
 
 
 class LinUCBPolicy(object):
-    def __init__(self, n_actions, delta=0.05, train_freq=500):
+    def __init__(self, n_actions, context_dim, delta=0.2,
+                 train_starts_at=500, train_freq=50):
         self._n_actions = n_actions
         self._act_count = np.zeros(n_actions, dtype=int)
-        self._A = [None] * self._n_actions
-        self._b = [None] * self._n_actions
-        self._theta = [None] * self._n_actions
+
+        # bias
+        self._d = context_dim + 1
+
+        # initialize with I_d, 0_d
+        self._A = [
+                np.identity(self._d)
+                for _ in range(self._n_actions)
+        ]
+
+        self._b = [
+                np.zeros(self._d)
+                for _ in range(self._n_actions)
+        ]
+
+        self._theta = [
+                np.linalg.lstsq(self._A[j], self._b[j], rcond=None)[0]
+                for j in range(self._n_actions)
+        ]
 
         self._alpha = 1 + np.sqrt(np.log(2/delta)/2)
 
         self._t = 0
         self._train_freq = train_freq
+        self._train_starts_at = train_starts_at
 
-    def choose_action(self, c_t):
+    def choose_action(self, x_t):
         """
 
-        compose x_{t,a} = concat(a_t, c_t) for all actions
-        solve X_a w_a = r_a
+        solve X_a w_a + b_a = r_a
 
         where
-        c_t in R^{d - 1 x 1}
-        b_a in R^{m x 1}
+        X_a in R^{n x d}
+        b_a in R^{n x 1}
         D_a (n_j x d): design matrix for a_j
-        c_a (n_j x 1): rewards corresponding to D_a
         theta (d x 1)
 
         solve D_a theta_a = c_a
@@ -102,23 +118,8 @@ class LinUCBPolicy(object):
 
         access to theta_a for all actions
         """
-        # @todo: remove j and consider adding bias
-
-        x_t = [np.array([j] + list(c_t)) for j in range(self._n_actions)]
-
-        d = len(c_t) + 1
-
-        if self._t % self._train_freq == 0:
-            # solve linear systems for all actions
-            for j in range(self._n_actions):
-
-                if self._A[j] is None:
-                    self._A[j] = np.identity(d)
-                    self._b[j] = np.zeros(d)
-
-                self._theta[j] = np.linalg.lstsq(self._A[j], self._b[j], rcond=None)[0]
-
-
+        # for bias
+        x_t = np.append(x_t, 1)
 
         # estimate an action value
         Q = np.zeros(self._n_actions)
@@ -126,9 +127,9 @@ class LinUCBPolicy(object):
 
         for j in range(self._n_actions):
             # compute upper bound
-            k_ta = x_t[j].T.dot(np.linalg.inv(self._A[j])).dot(x_t[j])
+            k_ta = x_t.T.dot(np.linalg.inv(self._A[j])).dot(x_t)
             ubc_t[j] = self._alpha * np.sqrt(k_ta)
-            Q[j] = self._theta[j].dot(x_t[j]) + ubc_t[j]
+            Q[j] = self._theta[j].dot(x_t) + ubc_t[j]
 
         # todo: tiebreaking
         a_t = np.argmax(Q)
@@ -141,23 +142,23 @@ class LinUCBPolicy(object):
 
         return a_t
 
-    def update(self, a_t, c_t, r_t):
+    def update(self, a_t, x_t, r_t):
         """
         """
         # d x 1
-        x_t = np.array([a_t] + list(c_t))
+        x_t = np.append(x_t, 1)
         # d x d
         self._A[a_t] += x_t.dot(x_t.T)
         # d x 1
         self._b[a_t] += r_t * x_t
 
+        if self._t < self._train_starts_at:
+            return
 
-class LinUCBHybridPolicy(object):
-    """Docstring for LinUCBHybridPolicy. """
-
-    def __init__(self):
-        """TODO: to be defined1. """
-        raise NotImplementedError
+        if self._t % self._train_freq == 0:
+            # solve linear systems for one action
+            # using lstsq to handle over/under determined systems
+            self._theta[a_t] = np.linalg.lstsq(self._A[a_t], self._b[a_t], rcond=None)[0]
 
 
 class LinearGaussianThompsonSamplingPolicy(object):
