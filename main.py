@@ -1,6 +1,7 @@
 """
 """
 import numpy as np
+import pandas as pd
 from pprint import pprint as pp
 
 
@@ -9,8 +10,7 @@ from datasets.mushroom.sample_data import sample_mushroom
 from datasets.preprocessing import load_data
 
 from models.context_free_policy import EpsilonGreedyPolicy, RandomPolicy, SampleMeanPolicy, UCBPolicy
-from models.context_based_policy import LinUCBPolicy, LinUCBHybridPolicy
-from models.context_based_policy import LinearRegressorPolicy,LinearGaussianThompsonSamplingPolicy
+from models.context_based_policy import LinUCBPolicy, LinearRegressorPolicy,LinearGaussianThompsonSamplingPolicy
 from simulate import simulate_contextual_bandit
 
 # we should forget about small efficiencies
@@ -39,7 +39,7 @@ def main(args):
         X, y = load_data(name="mushroom")
         # simulate the problem T steps
         #n_samples = 5 * (10 ** 4)
-        n_samples = 100
+        n_samples = 10000
         context_dim = 117
         n_actions = 2
 
@@ -58,10 +58,10 @@ def main(args):
                                   )
 
     elif task == "synthetic":
-        n_samples = 10000
+        n_samples = 5000
         n_actions = 5
         context_dim = 10
-        samples = sample_synthetic(n_samples, n_actions, context_dim)
+        samples = sample_synthetic(n_samples, n_actions, context_dim, sigma)
 
     else:
         raise NotImplementedError
@@ -72,11 +72,19 @@ def main(args):
     smp = SampleMeanPolicy(n_actions, lr=0.1)
     egp = EpsilonGreedyPolicy(n_actions, lr=0.1, epsilon=0.1)
     ucbp = UCBPolicy(n_actions=n_actions, lr=0.01)
-    lrp = LinearRegressorPolicy(n_actions)
-    linucbp = LinUCBPolicy(n_actions)
+    linucbp = LinUCBPolicy(
+            n_actions=n_actions,
+            context_dim=context_dim,
+            delta=2.0/np.exp**2,
+            train_starts_at=500,
+            train_freq=50)
     lgtsp = LinearGaussianThompsonSamplingPolicy(
                 n_actions=n_actions,
-                context_dim=context_dim
+                context_dim=context_dim,
+                eta_prior=6.0,
+                lambda_prior=0.25,
+                train_starts_at=500,
+                posterior_update_freq=50
             )
 
     policies = [rp, smp, egp, ucbp, linucbp, lgtsp]
@@ -109,7 +117,6 @@ def main(args):
     acts_data = np.hstack( (acts_data, acts_opt) )
 
 
-    import pandas as pd
     df = pd.DataFrame(cumreg_data, columns=policy_names)
     df.to_csv("{}.cumreg.csv".format(task), header=True, index=False)
 
@@ -120,6 +127,7 @@ def main(args):
 if __name__ == "__main__":
     args = {}
     #args["task"] = "mushroom"
+    #main(args)
     args["task"] = "synthetic"
     main(args)
 
