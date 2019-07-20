@@ -6,7 +6,7 @@ simulate 1...T steps of contextual bandits
 """
 import numpy as np
 
-def simulate_contextual_bandit(data, policies=[]):
+def simulate_contextual_bandit(data, n_samples, policies=[]):
     """
     data: tuple
          a T-length sequence of contexts
@@ -17,24 +17,30 @@ def simulate_contextual_bandit(data, policies=[]):
         diagnostics
     """
     # infer T
-    T = data[0].shape[0]
 
     results = {}
 
     for i, policy in enumerate(policies):
 
-        rewards = np.zeros(T)
-        regrets = np.zeros(T)
+        rewards = np.zeros(n_samples)
+        regrets = np.zeros(n_samples)
         t = 0
 
         # can regret be negative?
-        for c_t, r_eat_t, r_no_eat_t, a_opt, is_poisonous in zip(*data):
+        for c_t, r_acts, a_opt, _ in zip(*data):
+        #for i in range(n_samples):
+            c_t = data[0][i]
+            r_acts = data[1][i]
+            a_opt = data[2][i]
+
             a_t = policy.choose_action(c_t)
-            r_t = a_t * r_eat_t + (1 - a_t) * r_no_eat_t
+            r_t = r_acts[a_t]
+
+            #r_t = a_t * r_eat_t + (1 - a_t) * r_no_eat_t
 
             policy.update(a_t, c_t, r_t)
 
-            r_t_opt =  a_opt * r_eat_t + (1 - a_opt) * r_no_eat_t
+            r_t_opt =  r_acts[a_opt]
 
             rewards[t] = r_t
             regrets[t] = r_t_opt - r_t

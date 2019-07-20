@@ -56,18 +56,26 @@ def sample_synthetic(n_samples, n_actions=5, context_dim=10, sigma=3.0):
     # for convenience, isotropic gaussian
     cov = sigma**2 * np.eye(n_actions)
 
+    x_t_list = []
+    r_acts_list = []
+    opt_act_list_hidden = []
+    mean_list_hidden = []
+
     for t in range(n_samples):
         # generate sparse context
-        x_t = np.random.random_integers(low=0, high=5, size=d)
+        x_t = np.random.randint(low=0, high=5, size=d)
         mean = np.dot(W, x_t)
 
         r_acts = np.random.multivariate_normal(mean, cov=cov, size=1)
         r_acts = r_acts.squeeze()
         opt_act = np.argmax(mean)
 
-        mean_hidden = mean
+        x_t_list.append(x_t)
+        r_acts_list.append(r_acts)
+        opt_act_list_hidden.append(opt_act)
+        mean_list_hidden.append(mean)
 
-        yield x_t, r_acts, opt_act, mean_hidden
+    return x_t_list, r_acts_list, opt_act_list_hidden, mean_list_hidden
 
 
 

@@ -62,11 +62,13 @@ def sample_mushroom(X, y,
     else:
         # take risks
         # always eat
-        opt_acts = np.ones(n_mushrooms)
+        opt_acts = np.ones(n_mushrooms, dtype=int)
 
     # hidden info, not to be given to an agent
     is_poisonous_hidden = y[indices]
     opt_acts_hidden = opt_acts
 
-    return contexts, r_eats, r_no_eats, opt_acts_hidden, is_poisonous_hidden
+    r_acts = np.hstack((r_eats[:, None], r_no_eats[:, None]))
+
+    return contexts, r_acts, opt_acts_hidden, is_poisonous_hidden
 
