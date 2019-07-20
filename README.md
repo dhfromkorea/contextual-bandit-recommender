@@ -5,13 +5,17 @@ price quote recommendation
 discretize price space?
 
 ##
-The aim is to create a policy that would maximize the rewards obtained by the agent. The arms might also expire over time and new arms might appear too, leading to the same exploration-exploitation dilemma faced in multi-armed bandits.
 
-The problem is very similar to multi-class or multi-label classification (with the reward being whether the right label was chosen or not), but with the big difference that the right label or set of labels is not known for each observation, only whether the label that was chosen by the agent for each observation was correct or not.
+The problem:
+T-stream of contexts, learn to recommend a_t.
+assumes no labels and a reward function (in some applications, there is a natural ... such as CTR).
 
 Examples of such scenarios include online advertising, where we only know whether a user clicked an ad that he was presented with, but don't know which other ads he would have clicked; or clinic trials where we know how a person responded to a treatment, but don't know how he would have responded to a different treatment.
 
 While, in general, algorithms for the contextual bandits problem assume continuous rewards in the range [0,1], this package deals only with the case of discrete rewards {0,1}, and only with the case of arms that all see the same covariates.
+
+##
+- fix only measured inefficiencies (as a protection against premature optimization)
 
 ## reproduce
 https://arxiv.org/pdf/1003.0146.pdf
@@ -24,16 +28,48 @@ https://arxiv.org/pdf/1811.04383.pdf
 https://github.com/david-cortes/contextualbandits
 
 ## tech
-[ ] pytorch or tensorflow
-[ ] Docker Container
-[ ] SQL
-[ ] AWS
-[ ] some visualization
+eval metrics
+(diag)
+- simple reward: 500 steps average
+- cum rewards: over T steps
+- action value estimates: snapshot every n steps (x axis: actions, y: value)
+
+(eval)
+- simple regret
+- cum regrets
+- regret: over time (peak)
+
+(maybe)
+- simple regret per action
+- cum regrets per action
+
+log the file as a single np.array?
+
+want to understand
+- performance
+- diagnostics on a possible cause: bias or variance?
+
+### highest priority
+[ ] some visualization/diagnostics (eval metrics)
+[ ] pull next data: news data
+[ ] write new_data sampler
+[ ] write test for it
+[ ] run diagnostics and fix bugs in models (bias term issue)
+[ ] AWS (so fast --- all tests passing)
+
+### mid priority
+[ ] Blogpost
 [ ] ec2 & s3
-[ ] test
-[ ] build/makefile
-[ ] spark or hadoop
+[ ] pytorch or tensorflow
+
+### low priority
+[ ] logging
+[ ] SQL - Data model?
 [ ] deal with large data
+[ ] spark or hadoop
+[ ] Docker Container
+[v] test
+[v] build/makefile
 
 ## TODO
 [v] do eda on mushroom data
@@ -50,10 +86,9 @@ https://github.com/david-cortes/contextualbandits
 [ ] pull next data: movielens
 [ ] pull next data: goodbooks
 [ ] pull next data: price recommendation
-[ ] pull next data: news data
 [ ] write a hybrid method
 [ ] write a diagnostic, loss, evaluation workflow (plots)
-    
+
 
 ## questions
 - why not supervised learning if history data is available?
