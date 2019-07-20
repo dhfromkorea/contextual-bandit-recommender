@@ -164,6 +164,9 @@ class LinearGaussianThompsonSamplingPolicy(object):
     """
 
     a variant of Thompson Sampling
+    that computes an exact posterior
+    for a linear gaussian model
+    with corresponding conjugate priors.
 
     Model: Gaussian Likelihood
            R_t = W*x_t + eps
@@ -193,9 +196,10 @@ class LinearGaussianThompsonSamplingPolicy(object):
     def __init__(self,
                  n_actions,
                  context_dim,
-                 eta_prior=2.0,
+                 eta_prior=6.0,
                  lambda_prior=0.25,
-                 posterior_update_freq=100):
+                 train_starts_at=500,
+                 posterior_update_freq=50):
         """
         a_0; location for IG t=0
         b_0; scale for IG t=0
@@ -205,6 +209,7 @@ class LinearGaussianThompsonSamplingPolicy(object):
 
         self._t = 1
         self._update_freq = posterior_update_freq
+        self._train_starts_at = train_starts_at
 
         self._n_actions = n_actions
         # bias
@@ -247,7 +252,6 @@ class LinearGaussianThompsonSamplingPolicy(object):
               p(w|sigma) ~ N(mu_0, sigma^2 * lambda_0^-1)
 
         """
-
         cov_t = np.linalg.inv(np.dot(X_t.T, X_t) + self._precision_0)
         mu_t = np.dot(cov_t, np.dot(X_t.T, r_t_list))
         a_t = self._a_0 + self._t/2
@@ -273,27 +277,38 @@ class LinearGaussianThompsonSamplingPolicy(object):
 
         """
 
-        W_t = []
-        sigma_sq_t_list = []
 
-        for j in range(self._n_actions):
-            # p(sigma^2)
-            sigma_sq_t = invgamma.rvs(self._a_list[j], self._b_list[j])
-            sigma_sq_t_list.append(sigma_sq_t)
-            # p(w|sigma^2)
-            mu_t = self._mu_list[j]
-            cov_t = self._cov_list[j]
+        # p(sigma^2)
+        sigma_sq_t_list = [
+            invgamma.rvs(self._a_list[j], scale=self._b_list[j])
+            for j in range(self._n_actions)
+        ]
 
-            # N(mu, cov)
-            w_t = np.random.multivariate_normal(mu_t, sigma_sq_t * cov_t)
-            W_t.append(w_t)
+        try:
+            # p(w|sigma^2) = N(mu, sigam^2 * cov)
+            W_t = [
+                np.random.multivariate_normal(
+                    self._mu_list[j] , sigma_sq_t_list[j] * self._cov_list[j]
+                )
+                for j in range(self._n_actions)
+            ]
+        except np.linalg.LinAlgError as e:
+            print("Error in {}".format(type(self).__name__))
+            print('Errors: {} | {}.'.format(e.message, e.args))
+            beta = [
+                np.random.multivariate_normal(
+                    np.zeros(self._d), np.eye(self._d)
+                )
+                for i in range(self._n_actions)
+            ]
 
         # p(r_new | params)
         mean_t_predictive = np.dot(W_t, x_t)
         cov_t_predictive = sigma_sq_t_list * np.eye(self._n_actions)
         r_t_estimates = np.random.multivariate_normal(
-                mean_t_predictive,
-                cov=cov_t_predictive, size=1)
+                            mean_t_predictive,
+                            cov=cov_t_predictive, size=1
+                        )
         r_t_estimates = r_t_estimates.squeeze()
 
         assert r_t_estimates.shape[0] == self._n_actions
@@ -327,6 +342,9 @@ class LinearGaussianThompsonSamplingPolicy(object):
         X_t, r_t_list = self._get_train_data(a_t)
         n_samples = X_t.shape[0]
 
+
+        if self._t < self._train_starts_at:
+            return
 
         # posterior update periodically per action
         if n_samples % self._update_freq == 0:
