@@ -37,7 +37,8 @@ def test_sample_mushroom(mushroom_data):
                                 r_no_eat=0.0
                                 )
 
-    contexts, r_eats, r_no_eats, opt_acts, is_poisonous = mushrooms
+    contexts, r_acts, opt_acts, is_poisonous = mushrooms
+    r_eats, r_no_eats = r_acts[:, 0], r_acts[:, 1]
 
     dim_context = 117
 

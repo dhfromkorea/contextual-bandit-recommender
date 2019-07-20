@@ -15,10 +15,10 @@ def synthetic_data():
 def test_sample_synthetic(synthetic_data):
     n_samples, n_actions, samples = synthetic_data
 
-    x_t, r_acts, opt_act, mean_hidden = next(samples)
+    x_t, r_acts, opt_act, mean_hidden = samples
 
-    assert len(r_acts) == n_actions
-    assert opt_act == np.argmax(mean_hidden)
+    assert len(r_acts[0]) == n_actions
+    assert opt_act[0] == np.argmax(mean_hidden[0])
 
 
 

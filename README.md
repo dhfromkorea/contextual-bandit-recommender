@@ -42,9 +42,10 @@ https://github.com/david-cortes/contextualbandits
 [v] write tests for methods so far
 [v] decouple tests from real datasets
 [v] write a Linear-Gaussian bandit sampler?
-[ ] write a basic thompson sampling method
-[ ] write a test for thompson sampling (beta bernoulli)
-[ ] consider using mock (at this point no!, arguing from premature optimization)
+[v] write a basic thompson sampling method
+[v] write a test for thompson sampling (beta bernoulli)
+[v] add synthetic data
+[v] consider using mock (at this point no!, arguing from premature optimization)
 [ ] pull next data: jester
 [ ] pull next data: movielens
 [ ] pull next data: goodbooks
