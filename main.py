@@ -61,6 +61,7 @@ def main(args):
         n_samples = 5000
         n_actions = 5
         context_dim = 10
+        sigma = 1.0 # set low covariance
         samples = sample_synthetic(n_samples, n_actions, context_dim, sigma)
 
     else:
@@ -75,7 +76,7 @@ def main(args):
     linucbp = LinUCBPolicy(
             n_actions=n_actions,
             context_dim=context_dim,
-            delta=2.0/np.exp**2,
+            delta=0.25,
             train_starts_at=500,
             train_freq=50)
     lgtsp = LinearGaussianThompsonSamplingPolicy(

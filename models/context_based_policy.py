@@ -1,63 +1,7 @@
 """
 """
-# context-based
-# idea
-#      - build a classifer and based on good/bad prediction, choose an optimal
-#      - to have a fair game, apply online classification training
-#      - but you cannot observe the true class
 import numpy as np
-from sklearn.linear_model import SGDRegressor
 from scipy.stats import invgamma
-
-
-class LinearRegressorPolicy(object):
-    """
-    trains SVM with SGD
-
-    Q(a_t,c_t) estimates E[R_t | a_t, c_t]
-
-    """
-    def __init__(self, n_actions, loss="squared_loss", epsilon=0.1, alpha=1e-4):
-        self._n_actions = n_actions
-        self._clf = SGDRegressor(alpha=alpha, loss=loss)
-        self._eps = epsilon
-        self._alpha = alpha
-        self._t = 0
-
-    def choose_action(self, c_t):
-        scores = []
-        # escape cold start
-        if self._t < 10:
-            return np.random.choice(np.arange(self._n_actions))
-
-        u = np.random.uniform()
-        if u > self._eps:
-            for a_j in range(self._n_actions):
-                x_t = [a_j] + list(c_t)
-                score = self._clf.predict(x_t)
-                scores.append(score)
-
-            a_t = np.argmax(scores)
-        else:
-            a_t = np.random.choice(np.arange(self._n_actions))
-
-
-        # anneal eps
-        self._eps = (1 - self._alpha)**self._t
-
-        self._t += 1
-
-        return a_t
-
-    def update(self, a_t, c_t, r_t):
-        """
-        a_t: int
-        c_t: list of int
-        """
-        # ignores context
-        x_t = np.array([a_t] + list(c_t))[None, :]
-        r_t = [r_t]
-        self._clf.partial_fit(x_t, r_t)
 
 
 class LinUCBPolicy(object):
