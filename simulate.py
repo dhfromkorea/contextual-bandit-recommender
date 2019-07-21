@@ -37,11 +37,11 @@ def simulate_contextual_bandit(data, n_samples, policies):
 
         t = 0
 
-        for c_t, r_acts, a_t_opt, _ in zip(*data):
-            a_t = policy.choose_action(c_t)
+        for x_t, r_acts, a_t_opt, _ in zip(*data):
+            a_t = policy.choose_action(x_t)
             r_t = r_acts[a_t]
 
-            policy.update(a_t, c_t, r_t)
+            policy.update(a_t, x_t, r_t)
 
             r_t_opt =  r_acts[a_t_opt]
 
