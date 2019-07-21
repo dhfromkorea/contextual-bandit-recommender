@@ -38,8 +38,8 @@ def main(args):
     if task == "mushroom":
         X, y = load_data(name="mushroom")
         # simulate the problem T steps
-        #n_samples = 5 * (10 ** 4)
-        n_samples = 10000
+        n_samples = 5 * (10 ** 4)
+        #n_samples = 10000
         context_dim = 117
         n_actions = 2
 
@@ -53,7 +53,7 @@ def main(args):
                                   r_eat_good=5.0,
                                   r_eat_bad_lucky=5.0,
                                   r_eat_bad_unlucky=-35.0,
-                                  r_eat_bad_lucky_prob=0.2,
+                                  r_eat_bad_lucky_prob=0.5,
                                   r_no_eat=0.0
                                   )
 
@@ -70,7 +70,7 @@ def main(args):
 
     # define a solver
     rp = RandomPolicy(n_actions)
-    smp = SampleMeanPolicy(n_actions, lr=0.1)
+    smp = SampleMeanPolicy(n_actions)
     egp = EpsilonGreedyPolicy(n_actions, lr=0.1, epsilon=0.1)
     ucbp = UCBPolicy(n_actions=n_actions, lr=0.01)
     linucbp = LinUCBPolicy(
