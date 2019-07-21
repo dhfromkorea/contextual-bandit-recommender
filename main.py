@@ -127,8 +127,8 @@ def main(args):
 
 if __name__ == "__main__":
     args = {}
-    #args["task"] = "mushroom"
-    #main(args)
+    args["task"] = "mushroom"
+    main(args)
     args["task"] = "synthetic"
     main(args)
 
