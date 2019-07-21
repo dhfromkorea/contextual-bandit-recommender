@@ -10,7 +10,7 @@ from datasets.mushroom.sample_data import sample_mushroom
 from datasets.preprocessing import load_data
 
 from models.context_free_policy import EpsilonGreedyPolicy, RandomPolicy, SampleMeanPolicy, UCBPolicy
-from models.context_based_policy import LinUCBPolicy, LinearRegressorPolicy,LinearGaussianThompsonSamplingPolicy
+from models.context_based_policy import LinUCBPolicy, LinearGaussianThompsonSamplingPolicy
 from simulate import simulate_contextual_bandit
 
 # we should forget about small efficiencies
