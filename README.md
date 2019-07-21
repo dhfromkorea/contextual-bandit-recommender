@@ -50,15 +50,13 @@ want to understand
 - diagnostics on a possible cause: bias or variance?
 
 #data_to_persist## highest priority
-[ ] some visualization/diagnostics (eval metrics)
-[ ] write test for it
-[ ] run diagnostics and fix bugs in models (bias term issue)
-
 ### mid priority
-[ ] pull next data: news data
-[ ] write new_data sampler
+
 [ ] ec2 & s3
 [ ] AWS (so fast --- all tests passing)
+
+[ ] pull next data: news data
+[ ] write new_data sampler
 
 [ ] Blogpost
 [ ] pytorch or tensorflow
@@ -69,10 +67,13 @@ want to understand
 [ ] deal with large data
 [ ] spark or hadoop
 [ ] Docker Container
-[v] test
-[v] build/makefile
 
 ## TODO
+[v] some visualization/diagnostics (eval metrics)
+[v] test
+[v] build/makefile
+[v] write test for it
+[v] run diagnostics and fix bugs in models (bias term issue)
 [v] do eda on mushroom data
 [v] write mushroom data sampler
 [v] write basic policies for mushroom

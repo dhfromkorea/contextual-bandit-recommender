@@ -33,15 +33,16 @@ class SampleMeanPolicy(object):
         self._Q[a_t] = 1/n_j * (self._Q[a_t] *(n_j - 1) + r_t)
 
 
-# exploration (no annealing)
+# exploration (with annealing)
 class EpsilonGreedyPolicy(object):
-    def __init__(self, n_actions, lr=0.1, epsilon=0.1):
+    def __init__(self, n_actions, lr=0.1, epsilon=0.5, eps_anneal_factor=0.01):
         self._n_actions = n_actions
         self._Q = np.zeros(n_actions)
         self._act_count = np.zeros(n_actions)
         self._lr = lr
         self._eps = epsilon
         self._t = 0
+        self._eps_anneal_factor = eps_anneal_factor
 
     def choose_action(self, c_t):
         u = np.random.uniform()
@@ -53,7 +54,7 @@ class EpsilonGreedyPolicy(object):
         self._act_count[a_t] += 1
 
         # anneal eps
-        self._eps = (1 - self._lr)**self._t
+        self._eps *= (1 - self._eps_anneal_factor)**self._t
 
         self._t += 1
         return a_t
@@ -61,10 +62,13 @@ class EpsilonGreedyPolicy(object):
     def update(self, a_t, c_t, r_t):
         # ignores context
         n_j = self._act_count[a_t]
-        self._Q[a_t] = 1/n_j * (self._Q[a_t] *(n_j - 1) + r_t)
+        # standard approach
+        # self._Q[a_t] = 1/n_j * (self._Q[a_t] *(n_j - 1) + r_t)
+        # robust for non-stationary
+        self._Q[a_t] = self._Q[a_t] + self._lr * (r_t - self._Q[a_t])
 
 
-# exploration (annealing)
+# exploration with ucb
 class UCBPolicy(object):
     def __init__(self, n_actions, lr=0.1):
         self._n_actions = n_actions
@@ -95,6 +99,9 @@ class UCBPolicy(object):
     def update(self, a_t, c_t, r_t):
         # ignores context
         n_j = self._act_count[a_t]
-        self._Q[a_t] = 1/n_j * (self._Q[a_t] *(n_j - 1) + r_t)
-        #self._Q[a_t] = self._Q[a_t] + self._lr * (r_t - self._Q[a_t])
+        # standard approach
+        # self._Q[a_t] = 1/n_j * (self._Q[a_t] *(n_j - 1) + r_t)
+        # robust for non-stationary
+        self._Q[a_t] = self._Q[a_t] + self._lr * (r_t - self._Q[a_t])
+
 
