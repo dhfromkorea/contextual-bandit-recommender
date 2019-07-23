@@ -12,10 +12,20 @@ user (one)---- (many) user_visit_event (one; displayed)---(many)article
 from datetime import datetime
 
 
-from sqlalchemy import Column, Integer, Float, DateTime, ForeignKey
-from sqlalchemy import MetaData, create_engine
+from sqlalchemy import (
+        MetaData,
+        create_engine,
+        Column,
+        Integer,
+        Float,
+        DateTime,
+        ForeignKey,
+)
+from sqlalchemy.orm import (
+        relationship,
+        sessionmaker,
+)
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, sessionmaker
 
 
 Base = declarative_base()
@@ -34,8 +44,8 @@ class User(Base):
 
 class Article(Base):
     __tablename__ = "article"
-    id = Column(Integer, primary_key=True)
-    yahoo_id = Column(Integer, nullable=False)
+    # trusting yahoo id as unique
+    id = Column(Integer, primary_key=True, autoincrement=False)
     feature_1 = Column(Float, nullable=False)
     feature_2 = Column(Float, nullable=False)
     feature_3 = Column(Float, nullable=False)
@@ -93,6 +103,8 @@ class DBHelper(object):
             # create from scratch
             Base.metadata.create_all(engine)
             self._shortlists = {}
+            self._articles = set()
+
         else:
             q = self._session.query
             shortlists = q(Shortlist).all()
@@ -102,8 +114,10 @@ class DBHelper(object):
                 shortlist_sets[sl.id] = set([a.article_id for a in sl_arts])
             self._shortlists = shortlist_sets
 
-
-
+            self._articles = set()
+            articles = q(Article).all()
+            for article in articles:
+                self._articles.add(article.id)
 
     def write_user_event(self, parsed_user_event):
         """
@@ -126,25 +140,28 @@ class DBHelper(object):
 
         # create article
         for art_id, art_fs in uv["article"].items():
-            article = Article(yahoo_id=art_id,
-                              feature_1=art_fs[0],
-                              feature_2=art_fs[1],
-                              feature_3=art_fs[2],
-                              feature_4=art_fs[3],
-                              feature_5=art_fs[4],
-                              feature_6=art_fs[5])
-            self._session.add(article)
+            # check if article already exists
+            if not art_id in self._articles:
+                article = Article(id=art_id,
+                                  feature_1=art_fs[0],
+                                  feature_2=art_fs[1],
+                                  feature_3=art_fs[2],
+                                  feature_4=art_fs[3],
+                                    feature_5=art_fs[4],
+                                  feature_6=art_fs[5])
+                self._session.add(article)
+                self._articles.add(art_id)
 
+
+        # art_ids belonging to current uv's shortlist
+        cur_shortlist = set(uv["article"])
+        past_shortlists = self._shortlists
 
         # check for shortlist
-        shortlist_arts = set(uv["article"])
-
-        shortlists = self._shortlists
-
-        if shortlist_arts in shortlists.values():
+        if cur_shortlist in past_shortlists.values():
             # if shortlist_arts already exists
-            for s_id, s_val in shortlists.items():
-                if s_val == shortlist_arts:
+            for s_id, s_val in past_shortlists.items():
+                if s_val == cur_shortlist:
                     shortlist_id = s_id
                     break
         else:
@@ -153,17 +170,14 @@ class DBHelper(object):
             self._session.add(shortlist)
             self._session.flush()
             shortlist_id = shortlist.id
-
+            self._shortlists[shortlist_id] = cur_shortlist
 
             # create shortlist article
-            shortlist_arts = set()
-            for art_id in uv["article"]:
-                short_art = ShortlistArticle(article_id=art_id,
+            for art_id in cur_shortlist:
+                shortlist_art = ShortlistArticle(article_id=art_id,
                                              shortlist_id=shortlist_id)
-                self._session.add(short_art)
-                shortlist_arts.add(art_id)
+                self._session.add(shortlist_art)
 
-            self._shortlists[shortlist_id] = shortlist_arts
 
 
 
@@ -172,11 +186,16 @@ class DBHelper(object):
 
         date_time = datetime.fromtimestamp(int(uv["timestamp"]))
 
-        UserVisitEvent(user_id=user_id,
-                       displayed_article_id=daid,
-                       shortlist_id=shortlist_id,
-                       is_clicked=uv["is_clicked"],
-                       datetime=date_time)
+        uv_event = UserVisitEvent(user_id=user_id,
+                                  displayed_article_id=daid,
+                                  shortlist_id=shortlist_id,
+                                  is_clicked=uv["is_clicked"],
+                                  datetime=date_time)
+        self._session.add(uv_event)
+
+
+        # communicate changes so far to db
+        self._session.flush()
 
 
 
@@ -208,12 +227,189 @@ class DBHelper(object):
         self._session.commit()
 
 
+class DBHelperBulk(object):
+    DB_NAME = "yahoo_news" + "_bulk"
 
-if __name__ == "__main__":
-    """
-    too slow
-    """
+    def __init__(self):
+        """TODO: to be defined1. """
 
+        #engine = create_engine("sqlite:///{}".format(self.DB_NAME), echo=True)
+        engine = create_engine("sqlite:///{}".format(self.DB_NAME))
+        self._engine = engine
+
+
+        # get table metadata
+        meta = MetaData(bind=engine)
+        meta.reflect()
+        self._meta = meta
+
+        Session = sessionmaker(bind=engine)
+        self._session = Session()
+
+        # if all tables exist
+        if len(meta.sorted_tables) == 0:
+            # create from scratch
+            Base.metadata.create_all(engine)
+            self._shortlists = {}
+            self._articles = {}
+        else:
+            q = self._session.query
+            shortlists = q(Shortlist).all()
+            shortlist_sets = {}
+            for sl in shortlists:
+                sl_arts = q(ShortlistArticle).filter_by(shortlist_id=sl.id)
+                shortlist_sets[sl.id] = set([a.article_id for a in sl_arts])
+            self._shortlists = shortlist_sets
+
+
+            self._articles = set()
+            articles = q(Article).all()
+            for article in articles:
+                self._articles.add(article.id)
+
+
+    def write_user_event(self, parsed_uv_list):
+        """
+        """
+
+        users = []
+        # create users
+
+        for uv in parsed_uv_list:
+            fs = uv["user"]
+            user = User(feature_1=fs[0],
+                        feature_2=fs[1],
+                        feature_3=fs[2],
+                        feature_4=fs[3],
+                        feature_5=fs[4],
+                        feature_6=fs[5])
+
+            users.append(user)
+
+        self._session.bulk_save_objects(users, return_defaults=True)
+        #self._session.add_all(users)
+        #self._session.flush()
+        # gives primary key
+
+
+        # create articles
+        articles = []
+        for uv in parsed_uv_list:
+            for art_id, art_fs in uv["article"].items():
+                # check if article already exists
+                if not art_id in self._articles:
+                    # new article
+                    article = Article(id=art_id,
+                                      feature_1=art_fs[0],
+                                      feature_2=art_fs[1],
+                                      feature_3=art_fs[2],
+                                      feature_4=art_fs[3],
+                                      feature_5=art_fs[4],
+                                      feature_6=art_fs[5])
+                    articles.append(article)
+                    self._articles.add(art_id)
+        self._session.bulk_save_objects(articles)
+        #self._session.add_all(articles)
+
+
+        # check for shortlist
+        shortlist_articles_raw = []
+
+        shortlists = []
+        for uv in parsed_uv_list:
+            cur_shortlist = set(uv["article"])
+
+            # pull existing shortlists
+            past_shortlists = self._shortlists
+
+            if cur_shortlist in past_shortlists.values():
+                # if such shortlist already exists
+                for s_id, s_val in past_shortlists.items():
+                    if s_val == cur_shortlist:
+                        shortlist_id = s_id
+                        break
+            else:
+                # otherwise create a new shortlist
+                shortlist = Shortlist()
+
+                shortlists.append(shortlist)
+                shortlist_articles_raw.append( (shortlist, cur_shortlist) )
+
+        self._session.bulk_save_objects(shortlists, return_defaults=True)
+        #self._session.add_all(shortlists)
+        #self._session.flush()
+
+        # create shortlist article
+        shortlist_articles = []
+        for shortlist, art_ids in shortlist_articles_raw:
+            for art_id in art_ids:
+                shortlist_art = ShortlistArticle(article_id=art_id,
+                                                 shortlist_id=shortlist.id)
+
+                shortlist_articles.append(shortlist_art)
+
+            # update the existing shortlist pool
+            self._shortlists[shortlist.id] = art_ids
+        self._session.bulk_save_objects(shortlist_articles)
+        #self._session.add_all(shortlist_articles)
+
+
+        # create user visit event
+        uv_events = []
+        for uv, user, shortlist in zip(parsed_uv_list, users, shortlists):
+            daid = uv["displayed_article_id"]
+
+            date_time = datetime.fromtimestamp(int(uv["timestamp"]))
+
+            uv_event = UserVisitEvent(user_id=user.id,
+                                      displayed_article_id=daid,
+                                      shortlist_id=shortlist.id,
+                                      is_clicked=uv["is_clicked"],
+                                      datetime=date_time)
+
+            uv_events.append(uv_event)
+
+        self._session.bulk_save_objects(uv_events)
+        #self._session.add_all(uv_events)
+
+        self._session.flush()
+
+
+    @property
+    def users(self):
+        q = self._session.query
+        users = q(User).all()
+        return users
+
+
+    @property
+    def articles(self):
+        q = self._session.query
+        articles = q(Article).all()
+        return articles
+
+
+    @property
+    def events(self):
+        q = self._session.query
+        uv_events = q(UserVisitEvent).all()
+        return uv_events
+
+
+    def reset_all_data(self):
+        for tb in self._meta.sorted_tables:
+            print("clear table: {}".format(tb))
+            self._session.execute(tb.delete())
+        self._session.commit()
+
+
+    def reset_all_tables(self):
+        for tb in self._meta.sorted_tables:
+            print("clear table: {}".format(tb))
+            tb.drop(self._engine)
+
+
+def main_1():
 
     from sample_data import read_user_event, parse_uv_event
 
@@ -236,7 +432,7 @@ if __name__ == "__main__":
             if i % 10000 == 0:
                 print("{}th write done in {}s!".format(i, time.time() - start_t))
                 start_t = time.time()
-                dbh._session.flush()
+                #dbh._session.flush()
 
             uv_event_string = next(reader)
             uv = parse_uv_event(uv_event_string)
@@ -250,6 +446,55 @@ if __name__ == "__main__":
 
 
     dbh._session.commit()
+
+def main_2():
+    from sample_data import read_user_event, parse_uv_event
+
+    dbh_bulk = DBHelperBulk()
+
+    dbh_bulk.reset_all_data()
+
+    reader = read_user_event()
+
+    from pprint import pprint
+
+    i = 0
+    import time
+
+    start_t = time.time()
+
+    # for each file
+    while True:
+
+        if i > 3:
+            break
+
+        try:
+            uv_list = [parse_uv_event(next(reader)) for i in range(10000)]
+
+            dbh_bulk.write_user_event(uv_list)
+            print("{}th 10000-bulk write done in {}s!".format(i, time.time() - start_t))
+            start_t = time.time()
+
+            i += 1
+
+        except StopIteration:
+            # end of file
+            break
+
+
+    dbh_bulk._session.commit()
+
+
+
+if __name__ == "__main__":
+    """
+    too slow
+    """
+
+    #main_1()
+    main_2()
+
 
     #for art in dbh.articles:
     #    pprint(art.id)
