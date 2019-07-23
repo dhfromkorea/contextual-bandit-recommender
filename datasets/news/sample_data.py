@@ -23,21 +23,20 @@ def parse_uv_event(user_visit):
 
     tokens = user_visit.strip().split(" ")
     uv_event["timestamp"] = tokens[0]
-    uv_event["article_id_displayed"] = tokens[1]
-    uv_event["user_click"]  = tokens[2]
+    uv_event["displayed_article_id"] = int(tokens[1])
+    uv_event["is_clicked"]  = int(tokens[2])
     user_marker = tokens[3]
 
     #print("{}, {}, {}, {}".format(timestamp, article_id_dp, user_click, marker))
 
     uv_event["user"] = {}
-    user_id = user_marker[1:]
 
     if user_marker == "|user":
-        uv_event["user"][user_id] = [None] * n_features
+        uv_event["user"] = [None] * n_features
 
         for user_feature in tokens[4:10]:
             feature_id, feature_val = user_feature.split(":")
-            uv_event["user"][user_id][int(feature_id)-1] = feature_val
+            uv_event["user"][int(feature_id)-1] = float(feature_val)
 
     else:
         raise Exception("unexpected marker: {}".format(user_marker))
@@ -49,11 +48,11 @@ def parse_uv_event(user_visit):
         article_marker = tokens[i]
         if article_marker[0] == "|" and article_marker[1:].isdigit():
             # assumes pos int
-            article_id =  article_marker[1:]
+            article_id =  int(article_marker[1:])
             uv_event["article"][article_id] = [None] * n_features
             for article_feature in tokens[i+1:i+7]:
                 feature_id, feature_val = article_feature.split(":")
-                uv_event["article"][article_id][int(feature_id)-1] = feature_val
+                uv_event["article"][article_id][int(feature_id)-1] = float(feature_val)
         else:
             raise Exception("unexpected marker: {}".format(article_marker))
         i += 7
