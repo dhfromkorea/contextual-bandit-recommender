@@ -77,13 +77,13 @@ class SharedLinUCBPolicy(object):
         u_t, S_t = x_t
         n_actions = len(S_t)
         assert n_actions == self._n_actions
-        assert len(S_t[0, :]) == self._d
 
 
         for j in range(self._n_actions):
             # compute input for each action
             # user_context + action_context + bias
             x_t = np.concatenate( (u_t, S_t[j, :], [1]) )
+            assert len(x_t) == self._d
 
             # compute upper bound
             k_ta = x_t.T.dot(np.linalg.inv(self._A)).dot(x_t)
@@ -169,8 +169,8 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
         # inverse gamma prior
         self._a_0 = eta_prior
         self._b_0 = eta_prior
-        self._a_list = eta_prior
-        self._b_list = eta_prior
+        self._a = eta_prior
+        self._b = eta_prior
 
 
         # conditional Gaussian prior
@@ -180,13 +180,13 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
         self._precision_0 = self._sigma_sq_0 / self._lambda_prior
 
         # initialized at mu_0
-        self._mu_list = 0.0
+        self._mu = np.zeros(self._d)
 
         # initialized at cov_0
-        self._cov_list = 1.0 / self._lambda_prior
+        self._cov = 1.0 / self._lambda_prior * np.eye(self._d)
 
         # remember training data
-        self._train_data = None
+        self._X_t = None
 
 
     def _update_posterior(self, X_t, r_t_list):
@@ -208,10 +208,10 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
         precision_t = np.linalg.inv(cov_t)
         b_t = self._b_0 + 0.5*(r - np.dot(mu_t.T, np.dot(precision_t, mu_t)))
 
-        self._cov_list = cov_t
-        self._mu_list = mu_t
-        self._a_list = a_t
-        self._b_list = b_t
+        self._cov = cov_t
+        self._mu = mu_t
+        self._a = a_t
+        self._b = b_t
 
 
     def _sample_posterior_predictive(self, x_t, n_samples=1):
@@ -225,12 +225,12 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
         """
 
         # 1. p(sigma^2)
-        sigma_sq_t = invgamma.rvs(self._a_list, scale=self._b_list)
+        sigma_sq_t = invgamma.rvs(self._a, scale=self._b)
 
         try:
             # p(w|sigma^2) = N(mu, sigam^2 * cov)
             w_t = np.random.multivariate_normal(
-                    self._mu_list, sigma_sq_t_list * self._cov_list
+                    self._mu, sigma_sq_t * self._cov
             )
         except np.linalg.LinAlgError as e:
             print("Error in {}".format(type(self).__name__))
@@ -286,6 +286,9 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
 
         with respect to a_t
         """
+
+        u_t, S_t = x_t
+        x_t = np.concatenate( (u_t, S_t[a_t, :], [1]) )
 
         # add a new data point
         if self._X_t is None:
