@@ -6,6 +6,7 @@
 *.nz
 datasets/news/v1/
 datasets/news/v2/
+ideas.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
