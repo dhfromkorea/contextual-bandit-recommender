@@ -11,7 +11,6 @@ user (one)---- (many) user_visit_event (one; displayed)---(many)article
 
 from datetime import datetime
 
-
 from sqlalchemy import (
         MetaData,
         create_engine,
@@ -27,6 +26,7 @@ from sqlalchemy.orm import (
 )
 from sqlalchemy.ext.declarative import declarative_base
 
+from sample_data import read_user_event, parse_uv_event, extract_data
 
 Base = declarative_base()
 
@@ -147,7 +147,7 @@ class DBHelper(object):
                                   feature_2=art_fs[1],
                                   feature_3=art_fs[2],
                                   feature_4=art_fs[3],
-                                    feature_5=art_fs[4],
+                                  feature_5=art_fs[4],
                                   feature_6=art_fs[5])
                 self._session.add(article)
                 self._articles.add(art_id)
@@ -169,6 +169,7 @@ class DBHelper(object):
             shortlist = Shortlist()
             self._session.add(shortlist)
             self._session.flush()
+
             shortlist_id = shortlist.id
             self._shortlists[shortlist_id] = cur_shortlist
 
@@ -177,8 +178,6 @@ class DBHelper(object):
                 shortlist_art = ShortlistArticle(article_id=art_id,
                                              shortlist_id=shortlist_id)
                 self._session.add(shortlist_art)
-
-
 
 
         # create user visit event
@@ -195,7 +194,7 @@ class DBHelper(object):
 
 
         # communicate changes so far to db
-        self._session.flush()
+        # self._session.flush()
 
 
 
@@ -409,13 +408,13 @@ class DBHelperBulk(object):
             tb.drop(self._engine)
 
 
-def main_1():
-
-    from sample_data import read_user_event, parse_uv_event
+def main():
+    """
+    """
 
     dbh = DBHelper()
 
-    dbh.reset_all_data()
+    #dbh.reset_all_data()
 
     reader = read_user_event()
 
@@ -429,25 +428,37 @@ def main_1():
     # for each file
     while True:
         try:
-            if i % 10000 == 0:
-                print("{}th write done in {}s!".format(i, time.time() - start_t))
+            if i % 100000 == 0:
+                print("{}th 100000 samples written in {}s!".format(i, time.time() - start_t))
                 start_t = time.time()
-                #dbh._session.flush()
+
+            if i % 1000 == 0:
+                # commit every now and then
+                dbh._session.commit()
 
             uv_event_string = next(reader)
             uv = parse_uv_event(uv_event_string)
-            dbh.write_user_event(uv)
 
+            if uv is None:
+                # corrupted line; ignore
+                continue
+
+            dbh.write_user_event(uv)
             i += 1
 
         except StopIteration:
             # end of file
             break
 
-
     dbh._session.commit()
 
-def main_2():
+def main_bulk():
+    """
+    there is no performance gain.
+
+    due to the primary key retreival.
+
+    """
     from sample_data import read_user_event, parse_uv_event
 
     dbh_bulk = DBHelperBulk()
@@ -465,15 +476,12 @@ def main_2():
 
     # for each file
     while True:
-
-        if i > 3:
-            break
-
         try:
-            uv_list = [parse_uv_event(next(reader)) for i in range(10000)]
+
+            uv_list = [parse_uv_event(next(reader)) for i in range(1000)]
 
             dbh_bulk.write_user_event(uv_list)
-            print("{}th 10000-bulk write done in {}s!".format(i, time.time() - start_t))
+            print("{}th 1000-bulk write done in {}s!".format(i, time.time() - start_t))
             start_t = time.time()
 
             i += 1
@@ -491,30 +499,10 @@ if __name__ == "__main__":
     """
     too slow
     """
+    extract_data()
 
-    #main_1()
-    main_2()
-
-
-    #for art in dbh.articles:
-    #    pprint(art.id)
-    #for et in dbh.events:
-    #    pprint(et.id)
-    #for u in dbh.users:
-    #    pprint(u.id)
-
-
-    # read file line by line
-    # parse line
-    # wrap into objects
-    # write to db
-    # read from db
-    # check
-
-
-
-
-
+    main()
+    #main_bulk()
 
 
 
