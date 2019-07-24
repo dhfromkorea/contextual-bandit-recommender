@@ -125,36 +125,22 @@ class SharedLinUCBPolicy(object):
             self._theta = np.linalg.lstsq(self._A, self._b, rcond=None)[0]
 
 
-class LinearGaussianThompsonSamplingPolicy(object):
+class SharedLinearGaussianThompsonSamplingPolicy(object):
     """
 
-    a variant of Thompson Sampling
-    that computes an exact posterior
-    for a linear gaussian model
-    with corresponding conjugate priors.
+    action-context aware policy
 
-    Model: Gaussian Likelihood
-           R_t = W*x_t + eps
-           # eps ~ N(0, sigma^2 I)
+    A variant of Thompson Sampling that is based on
 
-    Model Parameters: mu, cov
+    Bayesian Linear Regression
 
-    Prior on the parameters
-    p(w, sigma^2) =
+    with Inverse Gamma and Gaussian prior
 
-    p(sigma^2) ~ Inverse Gamma(a_0, b_0)
-    * p(w|sigma^2) ~ N(mu_0, sigma^2 * precision_0^-1)
 
-    The postestior update for this prior-likelihood combination
-    can be done exactly in a closed form.
-    i.e. Bayesian Linear Regression
+    unlike the one in context_based_policy.py
+    all parameters are shared across actions
 
-    we maintain for each action j
-
-    mu_t^j, cov_t^j, sigma_sq_t^j
-
-    posterior updates can be done periodically (update_freq)
-    or sequentially (not implemented)
+    the performance expectation is similar as SharedLinUCBPolicy.
 
     """
 
@@ -183,38 +169,34 @@ class LinearGaussianThompsonSamplingPolicy(object):
         # inverse gamma prior
         self._a_0 = eta_prior
         self._b_0 = eta_prior
-        self._a_list = [eta_prior] * n_actions
-        self._b_list = [eta_prior] * n_actions
+        self._a_list = eta_prior
+        self._b_list = eta_prior
 
 
         # conditional Gaussian prior
         self._sigma_sq_0 = invgamma.rvs(eta_prior, eta_prior)
         self._lambda_prior = lambda_prior
         # precision_0 shared for all actions
-        self._precision_0 = self._sigma_sq_0 / self._lambda_prior * np.eye(self._d)
+        self._precision_0 = self._sigma_sq_0 / self._lambda_prior
 
         # initialized at mu_0
-        self._mu_list = [
-                np.zeros(self._d)
-                for _ in range(n_actions)
-        ]
+        self._mu_list = 0.0
 
         # initialized at cov_0
-        self._cov_list = [
-                1.0 / self._lambda_prior * np.eye(self._d)
-                for _ in range(n_actions)
-        ]
+        self._cov_list = 1.0 / self._lambda_prior
 
         # remember training data
-        self._train_data = [None] * n_actions
+        self._train_data = None
 
 
-    def _update_posterior(self, action_idx, X_t, r_t_list):
+    def _update_posterior(self, X_t, r_t_list):
         """
         p(w, sigma^2) = p(mu|cov)p(a, b)
 
         where p(sigma^2) ~ Inverse Gamma(a_0, b_0)
               p(w|sigma) ~ N(mu_0, sigma^2 * lambda_0^-1)
+
+        does a full refit. online version could be implemented.
 
         """
         cov_t = np.linalg.inv(np.dot(X_t.T, X_t) + self._precision_0)
@@ -226,10 +208,10 @@ class LinearGaussianThompsonSamplingPolicy(object):
         precision_t = np.linalg.inv(cov_t)
         b_t = self._b_0 + 0.5*(r - np.dot(mu_t.T, np.dot(precision_t, mu_t)))
 
-        self._cov_list[action_idx] = cov_t
-        self._mu_list[action_idx] = mu_t
-        self._a_list[action_idx] = a_t
-        self._b_list[action_idx] = b_t
+        self._cov_list = cov_t
+        self._mu_list = mu_t
+        self._a_list = a_t
+        self._b_list = b_t
 
 
     def _sample_posterior_predictive(self, x_t, n_samples=1):
@@ -242,35 +224,40 @@ class LinearGaussianThompsonSamplingPolicy(object):
 
         """
 
-
-        # p(sigma^2)
-        sigma_sq_t_list = [
-            invgamma.rvs(self._a_list[j], scale=self._b_list[j])
-            for j in range(self._n_actions)
-        ]
+        # 1. p(sigma^2)
+        sigma_sq_t = invgamma.rvs(self._a_list, scale=self._b_list)
 
         try:
             # p(w|sigma^2) = N(mu, sigam^2 * cov)
-            W_t = [
-                np.random.multivariate_normal(
-                    self._mu_list[j] , sigma_sq_t_list[j] * self._cov_list[j]
-                )
-                for j in range(self._n_actions)
-            ]
+            w_t = np.random.multivariate_normal(
+                    self._mu_list, sigma_sq_t_list * self._cov_list
+            )
         except np.linalg.LinAlgError as e:
             print("Error in {}".format(type(self).__name__))
-            print('Errors: {} | {}.'.format(e.message, e.args))
-            beta = [
-                np.random.multivariate_normal(
+            print('Errors: {}.'.format(e.args[0]))
+            w_t = np.random.multivariate_normal(
                     np.zeros(self._d), np.eye(self._d)
-                )
-                for i in range(self._n_actions)
-            ]
+            )
 
-        # p(r_new | params)
 
-        mean_t_predictive = np.dot(W_t, x_t)
-        cov_t_predictive = sigma_sq_t_list * np.eye(self._n_actions)
+        # modify context
+        u_t, S_t = x_t
+        n_actions = len(S_t)
+        assert n_actions == self._n_actions
+        x_ta = [
+                np.concatenate( (u_t, S_t[j, :], [1]) )
+                for j in range(self._n_actions)
+        ]
+        assert len(x_ta[0]) == self._d
+
+
+        # 2. p(r_new | params)
+        mean_t_predictive = [
+                np.dot(w_t, x_ta[j])
+                for j in range(self._n_actions)
+        ]
+
+        cov_t_predictive = sigma_sq_t * np.eye(self._n_actions)
         r_t_estimates = np.random.multivariate_normal(
                             mean_t_predictive,
                             cov=cov_t_predictive, size=1
@@ -284,9 +271,6 @@ class LinearGaussianThompsonSamplingPolicy(object):
 
     def choose_action(self, x_t):
         # p(R_new | params_t)
-        # add bias
-
-        x_t = np.append(x_t, 1)
 
         r_t_estimates = self._sample_posterior_predictive(x_t)
         act = np.argmax(r_t_estimates)
@@ -302,40 +286,30 @@ class LinearGaussianThompsonSamplingPolicy(object):
 
         with respect to a_t
         """
-        self._set_train_data(a_t, x_t, r_t)
-        # sample model parameters
-        # p(w, sigma^2 | X_t, r_vec_t)
-        X_t, r_t_list = self._get_train_data(a_t)
-        n_samples = X_t.shape[0]
 
-
-        if self._t < self._train_starts_at:
-            return
-
-        # posterior update periodically per action
-        if n_samples % self._update_freq == 0:
-            self._update_posterior(a_t, X_t, r_t_list)
-
-    def _get_train_data(self, action_idx):
-        return self._train_data[action_idx]
-
-
-    def _set_train_data(self, action_idx, x_t, r_t):
-        # add bias
-        x_t = np.append(x_t, 1)
-
-        if self._train_data[action_idx] is None:
+        # add a new data point
+        if self._X_t is None:
             X_t = x_t[None, :]
             r_t_list = [r_t]
-
         else:
             X_t, r_t_list = self._train_data[action_idx]
             n = X_t.shape[0]
-            X_t = np.vstack((X_t, x_t))
+            X_t = np.vstack( (X_t, x_t))
             assert X_t.shape[0] == (n+1)
             assert X_t.shape[1] == self._d
-
             r_t_list = np.append(r_t_list, r_t)
 
-        self._train_data[action_idx] = (X_t, r_t_list)
+        # upate train data
+        self._train_data = (X_t, r_t_list)
+
+        # exploration phase to mitigate cold-start
+        # quite ill-defined
+        if self._t < self._train_starts_at:
+            return
+
+        # update posterior prioridically
+        # for computational reasons
+        n_samples = X_t.shape[0]
+        if n_samples % self._update_freq == 0:
+            self._update_posterior(X_t, r_t_list)
 
