@@ -6,6 +6,16 @@ simulate 1...T steps of contextual bandits
 """
 import numpy as np
 
+def moving_average(arr, n):
+    """
+    returns moving average for CTR
+    credit: https://stackoverflow.com/questions/14313510/how-to-calculate-moving-average-using-numpy
+    """
+    cs = np.cumsum(arr, dtype=float)
+    cs[n:] = cs[n:] - cs[:-n]
+    return cs[n-1:] / n
+
+
 def simulate_contextual_bandit(data, n_samples, policies):
     """
     data: tuple
@@ -43,7 +53,7 @@ def simulate_contextual_bandit(data, n_samples, policies):
 
             policy.update(a_t, x_t, r_t)
 
-            r_t_opt =  r_acts[a_t_opt]
+            r_t_opt = r_acts[a_t_opt]
 
             regret_t = r_t_opt - r_t
 
@@ -57,4 +67,53 @@ def simulate_contextual_bandit(data, n_samples, policies):
         results[i]["simple_regret"] = np.sum(regrets[-500:])
 
     return results
+
+
+def simulate_contextual_bandit_partial_label(data_generator, n_samples, policies):
+    """
+    data: generator
+    """
+    # infer T
+    results = [None] * len(policies)
+    for i, policy in enumerate(policies):
+        results[i] = {}
+        results[i]["reward"] = []
+
+        t = 0
+        t_1 = 0
+        for uv in data_generator:
+            # s_t = a list of article features
+            u_t, S_t, r_acts, act_hidden = uv
+
+            x_t = (u_t, S_t)
+            a_t = policy.choose_action(x_t)
+            if a_t == act_hidden:
+                assert act_hidden == r_acts[0]
+                # useful
+                r_t = r_acts[1]
+                policy.update(a_t, x_t, r_t)
+                results[i]["reward"].append(r_t)
+                t_1 += 1
+            else:
+                # not useful
+                # for off-policy learning
+                pass
+
+            #if t % 100000 == 0:
+            #    print("training with {} samples so far".format(t_1))
+
+            t += 1
+
+            if t_1 > n_samples:
+                print("{:.2f}% data useful".format(t_1/t * 100))
+                break
+
+
+        results[i]["policy"] = policy
+        rewards = results[i]["reward"]
+        results[i]["cum_reward"] = np.cumsum(rewards)
+        results[i]["CTR"] = moving_average(rewards, n=50)
+
+    return results
+
 
