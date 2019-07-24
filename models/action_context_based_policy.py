@@ -21,10 +21,8 @@ class SharedLinUCBPolicy(object):
 
     [1]: https://arxiv.org/pdf/1003.0146.pdf
     """
-    def __init__(self, n_actions, context_dim, delta=0.2,
+    def __init__(self, context_dim, delta=0.2,
                  train_starts_at=500, train_freq=50):
-        self._n_actions = n_actions
-        self._act_count = np.zeros(n_actions, dtype=int)
 
         # bias
         self._d = context_dim + 1
@@ -69,17 +67,15 @@ class SharedLinUCBPolicy(object):
 
         access to theta_a for all actions
         """
+        u_t, S_t = x_t
+        # number of actions can change
+        n_actions = S_t.shape[0]
 
         # estimate an action value
-        Q = np.zeros(self._n_actions)
-        ubc_t = np.zeros(self._n_actions)
+        Q = np.zeros(n_actions)
+        ubc_t = np.zeros(n_actions)
 
-        u_t, S_t = x_t
-        n_actions = len(S_t)
-        assert n_actions == self._n_actions
-
-
-        for j in range(self._n_actions):
+        for j in range(n_actions):
             # compute input for each action
             # user_context + action_context + bias
             x_t = np.concatenate( (u_t, S_t[j, :], [1]) )
@@ -106,8 +102,7 @@ class SharedLinUCBPolicy(object):
         """
 
         u_t, S_t = x_t
-        n_actions = len(S_t)
-        assert n_actions == self._n_actions
+
         x_t = np.concatenate( (u_t, S_t[a_t, :], [1]) )
         assert len(x_t) == self._d
 
@@ -145,7 +140,6 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
     """
 
     def __init__(self,
-                 n_actions,
                  context_dim,
                  eta_prior=6.0,
                  lambda_prior=0.25,
@@ -162,7 +156,6 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
         self._update_freq = posterior_update_freq
         self._train_starts_at = train_starts_at
 
-        self._n_actions = n_actions
         # bias
         self._d = context_dim + 1
 
@@ -242,11 +235,12 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
 
         # modify context
         u_t, S_t = x_t
-        n_actions = len(S_t)
-        assert n_actions == self._n_actions
+        n_actions = S_t.shape[0]
+
+
         x_ta = [
                 np.concatenate( (u_t, S_t[j, :], [1]) )
-                for j in range(self._n_actions)
+                for j in range(n_actions)
         ]
         assert len(x_ta[0]) == self._d
 
@@ -254,17 +248,17 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
         # 2. p(r_new | params)
         mean_t_predictive = [
                 np.dot(w_t, x_ta[j])
-                for j in range(self._n_actions)
+                for j in range(n_actions)
         ]
 
-        cov_t_predictive = sigma_sq_t * np.eye(self._n_actions)
+        cov_t_predictive = sigma_sq_t * np.eye(n_actions)
         r_t_estimates = np.random.multivariate_normal(
                             mean_t_predictive,
                             cov=cov_t_predictive, size=1
                         )
         r_t_estimates = r_t_estimates.squeeze()
 
-        assert r_t_estimates.shape[0] == self._n_actions
+        assert r_t_estimates.shape[0] == n_actions
 
         return r_t_estimates
 
