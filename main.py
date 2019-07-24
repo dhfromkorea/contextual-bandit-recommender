@@ -8,16 +8,98 @@ from pprint import pprint as pp
 from datasets.synthetic.sample_data import sample_synthetic
 from datasets.mushroom.sample_data import sample_mushroom
 from datasets.preprocessing import load_data
+from datasets.news.sample_data import sample_user_event
 
-from models.context_free_policy import EpsilonGreedyPolicy, RandomPolicy, SampleMeanPolicy, UCBPolicy
-from models.context_based_policy import LinUCBPolicy, LinearGaussianThompsonSamplingPolicy
-from simulate import simulate_contextual_bandit
+from models.context_free_policy import (
+        EpsilonGreedyPolicy,
+        RandomPolicy,
+        SampleMeanPolicy,
+        UCBPolicy,
+)
+from models.context_based_policy import (
+        LinUCBPolicy,
+        LinearGaussianThompsonSamplingPolicy,
+)
+from models.action_context_based_policy import (
+        SharedLinUCBPolicy,
+        SharedLinearGaussianThompsonSamplingPolicy,
+)
+from simulate import (
+        simulate_contextual_bandit,
+        simulate_contextual_bandit_partial_label,
+)
 
 # we should forget about small efficiencies
 # say about 97% of the time
 # premature optimization is the root of the evil
 # yet, we should not pass up opportunities
 # for the critical 3%
+
+def main_action_context(args):
+    """
+    runner for problems that have action context
+
+    action context = features for each valid action
+    """
+
+    task = args["task"]
+
+    uv_generator = sample_user_event()
+
+    T = 10**5
+
+    n_actions = 20
+    context_dim = 6 + 6
+
+    rp = RandomPolicy(n_actions)
+
+    linucbp = SharedLinUCBPolicy(
+            context_dim=context_dim,
+            delta=0.25,
+            train_starts_at=50,
+            train_freq=50
+    )
+
+    lgtsp = SharedLinearGaussianThompsonSamplingPolicy(
+                context_dim=context_dim,
+                eta_prior=6.0,
+                lambda_prior=0.25,
+                train_starts_at=50,
+                posterior_update_freq=50
+    )
+
+
+    policies = [rp, linucbp, lgtsp]
+    policy_names = ["rp", "linucbp", "lgtsp"]
+
+    results = simulate_contextual_bandit_partial_label(uv_generator, T, policies)
+
+
+    # log results
+    cumrew_data = None
+    for i in range(len(policies)):
+        cr = results[i]["cum_reward"][:, None]
+        if cumrew_data is None:
+            cumrew_data = cr
+        else:
+            cumrew_data = np.hstack( (cumrew_data, cr) )
+
+
+    df = pd.DataFrame(cumrew_data, columns=policy_names)
+    df.to_csv("{}.cumrew.csv".format(task), header=True, index=False)
+
+
+    CTR_data = None
+    for i in range(len(policies)):
+        cr = results[i]["CTR"][:, None]
+        if CTR_data is None:
+            CTR_data = cr
+        else:
+            CTR_data = np.hstack( (CTR_data, cr) )
+
+
+    df = pd.DataFrame(CTR_data, columns=policy_names)
+    df.to_csv("{}.CTR.csv".format(task), header=True, index=False)
 
 
 def main(args):
@@ -127,8 +209,9 @@ def main(args):
 
 if __name__ == "__main__":
     args = {}
-    args["task"] = "mushroom"
-    main(args)
-    args["task"] = "synthetic"
-    main(args)
-
+    #args["task"] = "mushroom"
+    #main(args)
+    #args["task"] = "synthetic"
+    #main(args)
+    args["task"] = "news"
+    main_action_context(args)
