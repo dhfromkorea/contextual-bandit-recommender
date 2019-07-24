@@ -9,8 +9,12 @@ class RandomPolicy(object):
     def __init__(self, n_actions):
         self._n_actions = n_actions
 
-    def choose_action(self, c_t):
-        return np.random.choice(np.arange(self._n_actions))
+    def choose_action(self, c_t, n_actions=None):
+        if n_actions is None:
+            return np.random.choice(np.arange(self._n_actions))
+        else:
+            # for action-context problems
+            return np.random.choice(np.arange(n_actions))
 
     def update(self, a_t, c_t, r_t):
         pass
