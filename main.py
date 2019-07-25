@@ -38,6 +38,8 @@ def arg_parser():
             independent trials for experiments")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--n_rounds", type=int, default=1000)
+    parser.add_argument("--train_starts_at", type=int, default=500)
+    parser.add_argument("--train_freq", type=int, default=64)
     parser.add_argument("--is_acp", action="store_true", help="whether the \
             task is an action context problem")
 

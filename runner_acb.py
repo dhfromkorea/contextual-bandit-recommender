@@ -40,16 +40,16 @@ def run_action_context_bandit(args):
     linucbp = SharedLinUCBPolicy(
             context_dim=context_dim,
             delta=0.25,
-            train_starts_at=300,
-            train_freq=500
+            train_starts_at=args.train_starts_at,
+            train_freq=args.train_freq
     )
 
     lgtsp = SharedLinearGaussianThompsonSamplingPolicy(
                 context_dim=context_dim,
                 eta_prior=6.0,
                 lambda_prior=0.25,
-                train_starts_at=300,
-                posterior_update_freq=500
+                train_starts_at=args.train_starts_at,
+                posterior_update_freq=args.train_freq
     )
 
     # prepare nueral policy
@@ -85,15 +85,13 @@ def run_action_context_bandit(args):
                               debug=args.debug)
 
     # batch data loader
-    bd = BanditData(batch_size)
+    bd = BanditData(batch_size, epoch_len=30)
 
-    neuralp = NeuralPolicy(ffn, bd, train_starts_at=500, train_freq=50,
-            set_gpu=set_gpu)
+    neuralp = NeuralPolicy(ffn, bd, train_starts_at=args.train_starts_at,
+            train_freq=args.train_freq, set_gpu=set_gpu)
 
-    #policies = [rp, linucbp, lgtsp, neuralp]
-    #policy_names = ["rp", "linucbp", "lgtsp", neuralp]
-    policies = [neuralp]
-    policy_names = ["neuralp"]
+    policies = [rp, linucbp, lgtsp, neuralp]
+    policy_names = ["rp", "linucbp", "lgtsp", "neuralp"]
 
     results = simulate_contextual_bandit_partial_label(uv_generator, n_rounds, policies)
 

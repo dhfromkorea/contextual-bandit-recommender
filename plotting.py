@@ -27,11 +27,11 @@ def main():
 
     tasks = ["news"]
     for task in tasks:
-        plot_acb(task, args.n_trials, args.window)
+        plot_acb(task, args)
 
     tasks = ["mushroom", "synthetic"]
     for task in tasks:
-        plot_cb(task, args.n_trials)
+        plot_cb(task, args)
 
 
 def compute_mean_std(paths, n_trials, window=-1):
@@ -70,7 +70,9 @@ def compute_mean_std(paths, n_trials, window=-1):
     return M_cr_mean, (M_cr_std, M_cr_std_low), df_cr.columns
 
 
-def plot_acb(task, n_trials, window):
+def plot_acb(task, args):
+    n_trials = args.n_trials
+    window = args.window
     paths = []
     for i in range(n_trials):
         p = os.path.join(root_dir, "{}.cumrew.{}.csv".format(task, i))
@@ -85,9 +87,12 @@ def plot_acb(task, n_trials, window):
     M_cr_mean, M_cr_std, columns = compute_mean_std(paths, n_trials,
             window=window)
 
-    plot_CTR(task, M_cr_mean, M_cr_std, columns)
+    plot_CTR(task, M_cr_mean, M_cr_std, columns, window)
 
-def plot_cb(task, n_trials):
+
+def plot_cb(task, args):
+    n_trials = args.n_trials
+    window = args.window
     paths = []
     for i in range(n_trials):
         p = os.path.join(root_dir, "{}.cumreg.{}.csv".format(task, i))
@@ -114,10 +119,10 @@ def plot_cumreg(task_name, M_cr_mean, M_cr_std, columns):
     for j in range(M_cr_mean.shape[1]):
         y_mean = M_cr_mean[:, j]
         #y_std = M_cr_std[:, j]
-        ax.plot(x, y_mean, label=columns[j])
+        ax.plot(x, y_mean, label=columns[j], linewidth=3)
         #ax.fill_between(x, np.maximum(0, y_mean - y_std), y_mean + y_std,
         #                 alpha=0.3)
-        ax.fill_between(x, np.maximum(0, low[:,j]), high[:,j], alpha=0.3)
+        ax.fill_between(x, np.maximum(0, low[:,j]), high[:,j], alpha=0.2)
     ax.legend(loc="upper left", fontsize=15)
     fig.savefig("{}.cumreg.png".format(task_name), bbox_inches="tight")
     plt.close()
@@ -150,20 +155,20 @@ def plot_cumrew(task_name, M_cr_mean, M_cr_std, columns):
         y_mean = M_cr_mean[:, j]
         #y_std = M_cr_std[:, j]
 
-        ax.plot(x, y_mean, label=columns[j])
+        ax.plot(x, y_mean, label=columns[j], linewidth=3)
         #ax.fill_between(x, np.maximum(0, y_mean - y_std), y_mean + y_std,
         #                 alpha=0.3)
-        ax.fill_between(x, np.maximum(0, low[:, j]), high[:, j], alpha=0.3)
+        ax.fill_between(x, np.maximum(0, low[:, j]), high[:, j], alpha=0.2)
     ax.legend(loc="upper left", fontsize=15)
     fig.savefig("{}.cumrew.png".format(task_name), bbox_inches="tight")
     plt.close()
 
 
-def plot_CTR(task_name, M_cr_mean, M_cr_std, columns):
+def plot_CTR(task_name, M_cr_mean, M_cr_std, columns, window):
     high, low = M_cr_std
     fig, ax = plt.subplots(figsize=(7, 7))
     ax.set_ylim([0.0, 0.4])
-    ax.set_title("CTR (window=50) ({})".format(task_name), fontsize=25)
+    ax.set_title("CTR (smoothing={}) ({})".format(window, task_name), fontsize=25)
     ax.set_xlabel("Rounds (t)", fontsize=25)
     ax.set_ylabel("CTR", fontsize=25)
 
@@ -172,10 +177,10 @@ def plot_CTR(task_name, M_cr_mean, M_cr_std, columns):
         y_mean = M_cr_mean[:, j]
         #y_std = M_cr_std[:, j]
 
-        ax.plot(x, y_mean, label=columns[j])
+        ax.plot(x, y_mean, label=columns[j], linewidth=3)
         #ax.fill_between(x, np.maximum(0.0, y_mean - y_std), y_mean + y_std,
         #                 alpha=0.3)
-        ax.fill_between(x, np.maximum(0, low[:,j]), high[:,j], alpha=0.3)
+        ax.fill_between(x, np.maximum(0, low[:,j]), high[:,j], alpha=0.2)
 
     ax.legend(loc="upper left", fontsize=15)
     fig.savefig("{}.CTR.png".format(task_name), bbox_inches="tight")

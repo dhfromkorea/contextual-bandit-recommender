@@ -11,9 +11,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
-import torchvision.datasets as dsets
 from torch.nn.utils import clip_grad_norm_
-import torchvision.transforms as transforms
 
 import logging
 logger = logging.getLogger(__name__ + "action_context_based_policy")
@@ -43,7 +41,9 @@ class SharedLinUCBPolicy(object):
     [1]: https://arxiv.org/pdf/1003.0146.pdf
     """
     def __init__(self, context_dim, delta=0.2,
-                 train_starts_at=500, train_freq=50):
+                 train_starts_at=500, train_freq=50,
+                 batch_mode=False, batch_size=1024
+                 ):
 
         # bias
         self._d = context_dim + 1
@@ -60,6 +60,11 @@ class SharedLinUCBPolicy(object):
         self._t = 0
         self._train_freq = train_freq
         self._train_starts_at = train_starts_at
+
+        # for computational efficiency
+        # train on a random subset
+        self._batch_mode = batch_mode
+        self._batch_size = batch_size
 
     def choose_action(self, x_t):
         """
@@ -165,7 +170,11 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
                  eta_prior=6.0,
                  lambda_prior=0.25,
                  train_starts_at=500,
-                 posterior_update_freq=50):
+                 posterior_update_freq=50,
+                 batch_mode=True,
+                 batch_size=256,
+                 lr=0.01
+    ):
         """
         a_0; location for IG t=0
         b_0; scale for IG t=0
@@ -202,6 +211,12 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
         # remember training data
         self._X_t = None
 
+        # for computational efficiency
+        # train on a random subset
+        self._batch_mode = batch_mode
+        self._batch_size = batch_size
+        self._lr = lr
+
 
     def _update_posterior(self, X_t, r_t_list):
         """
@@ -222,10 +237,18 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
         precision_t = np.linalg.inv(cov_t)
         b_t = self._b_0 + 0.5*(r - np.dot(mu_t.T, np.dot(precision_t, mu_t)))
 
-        self._cov = cov_t
-        self._mu = mu_t
-        self._a = a_t
-        self._b = b_t
+        if self._batch_mode:
+            # learn bit by bit
+            self._cov = cov_t * self.lr + self._cov * (1 - self.lr)
+            self._mu = mu_t * self.lr + self._cov * (1 - self.lr)
+            self._a = a_t * self.lr + self._cov * (1 - self.lr)
+            self._b = b_t * self.lr + self._cov * (1 - self.lr)
+
+        else:
+            self._cov = cov_t
+            self._mu = mu_t
+            self._a = a_t
+            self._b = b_t
 
 
     def _sample_posterior_predictive(self, x_t, n_samples=1):
@@ -308,7 +331,7 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
         # add a new data point
         if self._X_t is None:
             X_t = x_t[None, :]
-            r_t_list = [r_t]
+            r_t_list = np.array([r_t])
         else:
             X_t, r_t_list = self._train_data[action_idx]
             n = X_t.shape[0]
@@ -317,7 +340,14 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
             assert X_t.shape[1] == self._d
             r_t_list = np.append(r_t_list, r_t)
 
-        # upate train data
+        # train on a random batch
+        n_samples = X_t.shape[0]
+        if self._batch_mode and self._batch_size < n_samples:
+            indices = np.arange(self._batch_size)
+            batch_indices = np.random.choice(indices, size=self._batch_size)
+            X_t = X_t[batch_indices, :]
+            r_t_list = r_t[batch_indices]
+
         self._train_data = (X_t, r_t_list)
 
         # exploration phase to mitigate cold-start

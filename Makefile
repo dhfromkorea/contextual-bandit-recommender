@@ -3,9 +3,9 @@ APP_NAME="cb-recommender"
 TEST_PATH="./tests"
 MUSHROOM_DEST="./datasets/mushroom/mushroom.csv"
 MUSHROOM_SOURCE="https://archive.ics.uci.edu/ml/machine-learning-databases/mushroom/agaricus-lepiota.data"
-WINDOW=100
+WINDOW=256
 
-N_TRIALS=3
+N_TRIALS=1
 N_ROUNDS=1000
 
 init:
