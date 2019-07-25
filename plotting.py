@@ -1,4 +1,5 @@
 import os
+import argparse
 
 
 import pandas as pd
@@ -8,87 +9,166 @@ import seaborn as sns
 
 root_dir = os.path.abspath(os.path.dirname(__file__))
 
+def arg_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--n_trials", type=int, default=1, help="number of \
+            independent trials for experiments")
+
+    return parser.parse_args()
+
+
 def main():
+    args = arg_parser()
+
     sns.set()
     sns.set_palette("husl")
 
-    tasks = ["mushroom", "synthetic"]
-    for task in tasks:
-        cumreg_path = os.path.join(root_dir, "{}.cumreg.csv".format(task))
-        acts_path = os.path.join(root_dir, "{}.acts.csv".format(task))
-
-        df_cumreg = pd.read_csv(cumreg_path)
-        df_acts = pd.read_csv(acts_path)
-
-        plot_cumreg(task, df_cumreg)
-        plot_acts(task, df_acts)
-
     tasks = ["news"]
     for task in tasks:
-        cumrew_path = os.path.join(root_dir, "{}.cumrew.csv".format(task))
-        df_cumrew = pd.read_csv(cumrew_path)
-        plot_cumrew(task, df_cumrew)
+        plot_acb(task, args.n_trials)
 
-        CTR_path = os.path.join(root_dir, "{}.CTR.csv".format(task))
-        df_CTR = pd.read_csv(CTR_path)
-        plot_CTR(task, df_CTR)
+    tasks = ["mushroom", "synthetic"]
+    for task in tasks:
+        plot_cb(task, args.n_trials)
 
-def plot_cumreg(task_name, df_cumreg):
-    plt.figure(figsize=(7, 7))
-    plt.title("Cumulative Regret ({})".format(task_name), fontsize=25)
-    plt.xlabel("Rounds (t)", fontsize=25)
-    plt.ylabel("Cumulative Regret", fontsize=25)
-    for j in range(df_cumreg.shape[1]):
-        y = df_cumreg.iloc[:, j]
-        plt.plot(np.arange(df_cumreg.shape[0]), y, label=df_cumreg.columns[j])
-    #plt.legend(bbox_to_anchor=(1,0), loc="lower right",
-    #          bbox_transform=fig.transFigure, ncol= df_cumreg.shape[1])
-    plt.legend(loc="upper left", fontsize=15)
-    plt.savefig("{}.cumreg.png".format(task_name), bbox_inches="tight")
+def compute_mean_std(paths, n_trials):
+    M_cr = []
+    for i in range(n_trials):
+        df_cr = pd.read_csv(paths[i])
+        # numpy
+        M_cr.append(df_cr.to_numpy())
+
+    M_cr_mean = None
+    for i in range(n_trials):
+        if M_cr_mean is None:
+            M_cr_mean = M_cr[i]
+        else:
+            M_cr_mean += M_cr[i]
+    M_cr_mean = M_cr_mean / n_trials
+
+    # change std -> upper_bound
+    # upper_bound
+    #M_cr_std = np.zeros( M_cr_mean.shape )
+    #for i in range(n_trials):
+    #    M_cr_std += (M_cr[i] - M_cr_mean)**2
+    # no bias correction
+    #M_cr_std = M_cr_std / n_trials
+    M_cr_std = np.zeros( M_cr_mean.shape )
+    M_cr_std_low = np.zeros( M_cr_mean.shape )
+    for i in range(n_trials):
+        M_cr_std = np.maximum(M_cr[i], M_cr_std)
+        M_cr_std_low = np.minimum(M_cr[i], M_cr_std_low)
+
+    return M_cr_mean, (M_cr_std, M_cr_std_low), df_cr.columns
+
+
+def plot_acb(task, n_trials):
+    paths = []
+    for i in range(n_trials):
+        p = os.path.join(root_dir, "{}.cumrew.{}.csv".format(task, i))
+        paths.append(p)
+    M_cr_mean, M_cr_std, columns = compute_mean_std(paths, n_trials)
+    plot_cumrew(task, M_cr_mean, M_cr_std, columns)
+
+    paths = []
+    for i in range(n_trials):
+        p = os.path.join(root_dir, "{}.CTR.{}.csv".format(task, i))
+        paths.append(p)
+    M_cr_mean, M_cr_std, columns = compute_mean_std(paths, n_trials)
+    plot_CTR(task, M_cr_mean, M_cr_std, columns)
+
+def plot_cb(task, n_trials):
+    paths = []
+    for i in range(n_trials):
+        p = os.path.join(root_dir, "{}.cumreg.{}.csv".format(task, i))
+        paths.append(p)
+    M_cr_mean, M_cr_std, columns = compute_mean_std(paths, n_trials)
+    plot_cumreg(task, M_cr_mean, M_cr_std, columns)
+
+    paths = []
+    for i in range(n_trials):
+        p = os.path.join(root_dir, "{}.acts.{}.csv".format(task, i))
+        paths.append(p)
+    M_cr_mean, M_cr_std, columns = compute_mean_std(paths, n_trials)
+    plot_acts(task, M_cr_mean, columns)
+
+
+def plot_cumreg(task_name, M_cr_mean, M_cr_std, columns):
+    high, low = M_cr_std
+    fig, ax = plt.subplots(figsize=(7, 7))
+    ax.set_title("Cumulative Regret ({})".format(task_name), fontsize=25)
+    ax.set_xlabel("Rounds (t)", fontsize=25)
+    ax.set_ylabel("Cumulative Regret", fontsize=25)
+
+    x = np.arange(M_cr_mean.shape[0])
+    for j in range(M_cr_mean.shape[1]):
+        y_mean = M_cr_mean[:, j]
+        #y_std = M_cr_std[:, j]
+        ax.plot(x, y_mean, label=columns[j])
+        #ax.fill_between(x, np.maximum(0, y_mean - y_std), y_mean + y_std,
+        #                 alpha=0.3)
+        ax.fill_between(x, np.maximum(0, low[:,j]), high[:,j], alpha=0.3)
+    ax.legend(loc="upper left", fontsize=15)
+    fig.savefig("{}.cumreg.png".format(task_name), bbox_inches="tight")
     plt.close()
 
 
-def plot_acts(task_name, df_acts):
+def plot_acts(task_name, M_acts, columns):
     plt.figure(figsize=(7, 7))
     plt.title("Action Log ({})".format(task_name), fontsize=25)
     plt.xlabel("Rounds (t)", fontsize=25)
     plt.ylabel("Chosen action (a_t)", fontsize=25)
-    for j in range(df_acts.shape[1]):
-        y = df_acts.iloc[:, j]
-        plt.scatter(np.arange(df_acts.shape[0]), y + j * 0.05,
-                label=df_acts.columns[j], s=3)
+    for j in range(M_acts.shape[1]):
+        y = M_acts[:, j]
+        plt.scatter(np.arange(M_acts.shape[0]), y + j * 0.05,
+                label=columns[j], s=3)
     plt.legend(bbox_to_anchor=(1.04,1), borderaxespad=0, markerscale=6,
             fontsize=15)
     plt.savefig("{}.acts.png".format(task_name), bbox_inches="tight")
     plt.close()
 
 
-def plot_cumrew(task_name, df_cumrew):
-    plt.figure(figsize=(7, 7))
-    plt.title("Cumulative Reward ({})".format(task_name), fontsize=25)
-    plt.xlabel("Rounds (t)", fontsize=25)
-    plt.ylabel("Cumulative Reward", fontsize=25)
-    for j in range(df_cumrew.shape[1]):
-        y = df_cumrew.iloc[:, j]
-        plt.plot(np.arange(df_cumrew.shape[0]), y, label=df_cumrew.columns[j])
-    #plt.legend(bbox_to_anchor=(1,0), loc="lower right",
-    #          bbox_transform=fig.transFigure, ncol= df_cumreg.shape[1])
-    plt.legend(loc="upper left", fontsize=15)
-    plt.savefig("{}.cumrew.png".format(task_name), bbox_inches="tight")
+def plot_cumrew(task_name, M_cr_mean, M_cr_std, columns):
+    high, low = M_cr_std
+    fig, ax = plt.subplots(figsize=(7, 7))
+    ax.set_title("Cumulative Reward ({})".format(task_name), fontsize=25)
+    ax.set_xlabel("Rounds (t)", fontsize=25)
+    ax.set_ylabel("Cumulative Reward", fontsize=25)
+
+    x = np.arange(M_cr_mean.shape[0])
+    for j in range(M_cr_mean.shape[1]):
+        y_mean = M_cr_mean[:, j]
+        #y_std = M_cr_std[:, j]
+
+        ax.plot(x, y_mean, label=columns[j])
+        #ax.fill_between(x, np.maximum(0, y_mean - y_std), y_mean + y_std,
+        #                 alpha=0.3)
+        ax.fill_between(x, np.maximum(0, low[:, j]), high[:, j], alpha=0.3)
+    ax.legend(loc="upper left", fontsize=15)
+    fig.savefig("{}.cumrew.png".format(task_name), bbox_inches="tight")
     plt.close()
 
 
-def plot_CTR(task_name, df_CTR):
-    plt.figure(figsize=(7, 7))
-    plt.ylim([0.0, 1.0])
-    plt.title("CTR (window=50) ({})".format(task_name), fontsize=25)
-    plt.xlabel("Rounds (t)", fontsize=25)
-    plt.ylabel("CTR", fontsize=25)
-    for j in range(df_CTR.shape[1]):
-        y = df_CTR.iloc[:, j]
-        plt.plot(np.arange(df_CTR.shape[0]), y, label=df_CTR.columns[j])
-    plt.legend(loc="upper left", fontsize=15)
-    plt.savefig("{}.CTR.png".format(task_name), bbox_inches="tight")
+def plot_CTR(task_name, M_cr_mean, M_cr_std, columns):
+    high, low = M_cr_std
+    fig, ax = plt.subplots(figsize=(7, 7))
+    ax.set_ylim([0.0, 0.4])
+    ax.set_title("CTR (window=50) ({})".format(task_name), fontsize=25)
+    ax.set_xlabel("Rounds (t)", fontsize=25)
+    ax.set_ylabel("CTR", fontsize=25)
+
+    x = np.arange(M_cr_mean.shape[0])
+    for j in range(M_cr_mean.shape[1]):
+        y_mean = M_cr_mean[:, j]
+        #y_std = M_cr_std[:, j]
+
+        ax.plot(x, y_mean, label=columns[j])
+        #ax.fill_between(x, np.maximum(0.0, y_mean - y_std), y_mean + y_std,
+        #                 alpha=0.3)
+        ax.fill_between(x, np.maximum(0, low[:,j]), high[:,j], alpha=0.3)
+
+    ax.legend(loc="upper left", fontsize=15)
+    fig.savefig("{}.CTR.png".format(task_name), bbox_inches="tight")
     plt.close()
 
 if __name__ == "__main__":
