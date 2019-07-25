@@ -14,6 +14,8 @@ def arg_parser():
     parser.add_argument("--n_trials", type=int, default=1, help="number of \
             independent trials for experiments")
 
+    parser.add_argument("--window", type=int, \
+                        default=100, help="moving average window")
     return parser.parse_args()
 
 
@@ -25,18 +27,24 @@ def main():
 
     tasks = ["news"]
     for task in tasks:
-        plot_acb(task, args.n_trials)
+        plot_acb(task, args.n_trials, args.window)
 
     tasks = ["mushroom", "synthetic"]
     for task in tasks:
         plot_cb(task, args.n_trials)
 
-def compute_mean_std(paths, n_trials):
+
+def compute_mean_std(paths, n_trials, window=-1):
     M_cr = []
     for i in range(n_trials):
         df_cr = pd.read_csv(paths[i])
         # numpy
-        M_cr.append(df_cr.to_numpy())
+        if window == -1:
+            M_cr.append(df_cr.to_numpy())
+        else:
+            # smooth data
+            smoothed_data = df_cr.rolling(window, 1, axis=0).mean()
+            M_cr.append(smoothed_data.to_numpy())
 
     M_cr_mean = None
     for i in range(n_trials):
@@ -62,7 +70,7 @@ def compute_mean_std(paths, n_trials):
     return M_cr_mean, (M_cr_std, M_cr_std_low), df_cr.columns
 
 
-def plot_acb(task, n_trials):
+def plot_acb(task, n_trials, window):
     paths = []
     for i in range(n_trials):
         p = os.path.join(root_dir, "{}.cumrew.{}.csv".format(task, i))
@@ -74,7 +82,9 @@ def plot_acb(task, n_trials):
     for i in range(n_trials):
         p = os.path.join(root_dir, "{}.CTR.{}.csv".format(task, i))
         paths.append(p)
-    M_cr_mean, M_cr_std, columns = compute_mean_std(paths, n_trials)
+    M_cr_mean, M_cr_std, columns = compute_mean_std(paths, n_trials,
+            window=window)
+
     plot_CTR(task, M_cr_mean, M_cr_std, columns)
 
 def plot_cb(task, n_trials):
