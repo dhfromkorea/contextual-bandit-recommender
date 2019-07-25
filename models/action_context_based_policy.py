@@ -12,8 +12,17 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 import torchvision.datasets as dsets
-from torch.nn.utils import clip_grad_norm
+from torch.nn.utils import clip_grad_norm_
 import torchvision.transforms as transforms
+
+import logging
+logger = logging.getLogger(__name__ + "action_context_based_policy")
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
 
 
 class SharedLinUCBPolicy(object):
@@ -102,8 +111,8 @@ class SharedLinUCBPolicy(object):
         a_t = np.argmax(Q)
 
         #if self._t % 10000 == 0:
-        #    print("Q est {}".format(Q))
-        #    print("ubc {} at {}".format(ubc_t[a_t], self._t))
+        #    logger.debug("Q est {}".format(Q))
+        #    logger.debug("ubc {} at {}".format(ubc_t[a_t], self._t))
 
         self._t += 1
 
@@ -238,8 +247,8 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
                     self._mu, sigma_sq_t * self._cov
             )
         except np.linalg.LinAlgError as e:
-            print("Error in {}".format(type(self).__name__))
-            print('Errors: {}.'.format(e.args[0]))
+            logger.debug("Error in {}".format(type(self).__name__))
+            logger.debug('Errors: {}.'.format(e.args[0]))
             w_t = np.random.multivariate_normal(
                     np.zeros(self._d), np.eye(self._d)
             )
@@ -323,7 +332,7 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
             self._update_posterior(X_t, r_t_list)
 
 
-class DeepFeedforwardPolicy(nn.Module):
+class FeedForwardNetwork(nn.Module):
     """
     a simple feedforward network
     that estimates E[R_t | X_ta]
@@ -348,8 +357,6 @@ class DeepFeedforwardPolicy(nn.Module):
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.output_dim = output_dim
-        self.set_gpu = set_gpu
-        self.debug = debug
 
         self.model = nn.Sequential()
         self.model.add_module("input", nn.Linear(input_dim, hidden_dim))
@@ -358,7 +365,16 @@ class DeepFeedforwardPolicy(nn.Module):
             self.model.add_module("relu{}".format(i+1), nn.ReLU())
         self.model.add_module("fc{}".format(n_layer), nn.Linear(hidden_dim, output_dim))
 
-        #self.model.apply(self.initialize_weight)
+
+        self.set_gpu = set_gpu
+
+        if set_gpu and torch.cuda.is_available():
+            self.device = torch.device("cuda:0")
+            self.model.cuda()
+        else:
+            self.device = torch.device("cpu")
+
+        self.debug = debug
 
         # initialize weights
         for m in self.modules():
@@ -366,14 +382,12 @@ class DeepFeedforwardPolicy(nn.Module):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out')
                 #nn.init.constant_(m.bias, 0)
 
-
         self.opt = torch.optim.SGD(self.model.parameters(),
                                    lr=learning_rate,
                                    weight_decay=weight_decay)
 
         # output layer implicitly defined by this
         self.criterion = nn.MSELoss()
-        # self.criterion = nn.CrossEntropyLoss()
 
         self._step = 0
         self.grad_noise = grad_noise
@@ -386,17 +400,15 @@ class DeepFeedforwardPolicy(nn.Module):
                 if classname.find("Linear") != -1:
                     m.register_backward_hook(self.add_grad_noise)
 
-
         self._grad_clip = grad_clip
         self._grad_clip_norm = grad_clip_norm
         self._grad_clip_value = grad_clip_value
 
-        if set_gpu:
-            self.cuda()
 
     def predict(self, x):
         self.model.eval()
-        return self.model(x)
+        data = Variable(x).to(self.device)
+        return self.model(data)
 
 
     def train(self, epoch, train_loader):
@@ -424,10 +436,9 @@ class DeepFeedforwardPolicy(nn.Module):
             target = torch.from_numpy(target)
             target = target.float()
 
-            if self.set_gpu:
-                data, target = Variable(data).cuda(), Variable(target).cuda()
-            else:
-                data, target = Variable(data), Variable(target)
+            data = Variable(data).to(self.device)
+            target = Variable(target).to(self.device)
+
             data = data.view(-1, self.input_dim)
 
             self.opt.zero_grad()
@@ -438,7 +449,7 @@ class DeepFeedforwardPolicy(nn.Module):
             loss.backward()
 
             if self._grad_clip:
-                clip_grad_norm(self.model.parameters(), self._grad_clip_value, self._grad_clip_norm)
+                clip_grad_norm_(self.model.parameters(), self._grad_clip_value, self._grad_clip_norm)
 
 
             if self.debug and batch_idx % 10 == 0:
@@ -446,13 +457,13 @@ class DeepFeedforwardPolicy(nn.Module):
                     if np.random.rand() > 0.95:
                         if isinstance(layer, nn.Linear):
                             weight = layer.weight.data.numpy()
-                            print("========================")
-                            print("weight\n")
-                            print("max:{}\tmin:{}\tavg:{}\n".format(weight.max(), weight.min(), weight.mean()))
+                            logger.debug("========================")
+                            logger.debug("weight\n")
+                            logger.debug("max:{}\tmin:{}\tavg:{}\n".format(weight.max(), weight.min(), weight.mean()))
                             grad = layer.weight.grad.data.numpy()
-                            print("grad\n")
-                            print("max:{}\tmin:{}\tavg:{}\n".format(grad.max(), grad.min(), grad.mean()))
-                            print("=========================")
+                            logger.debug("grad\n")
+                            logger.debug("max:{}\tmin:{}\tavg:{}\n".format(grad.max(), grad.min(), grad.mean()))
+                            logger.debug("=========================")
 
             self.opt.step()
             self._step += 1
@@ -461,13 +472,15 @@ class DeepFeedforwardPolicy(nn.Module):
                 raise Exception("gradient exploded or vanished: try clipping gradient")
 
 
-            if batch_idx % 100 == 0:
+            if batch_idx % 20 == 0:
                 sys.stdout.flush()
                 sys.stdout.write('\rTrain Epoch: {:<2} [{:<5}/{:<5} ({:<2.0f}%)]\tLoss: {:.6f}'.format(
                     epoch + 1, batch_idx * len(data), len(train_loader),
                     100. * batch_idx / len(train_loader), loss.data.item()))
 
             total_loss += loss.data.item()
+
+        sys.stdout.flush()
 
         return total_loss/len(train_loader)
 
@@ -498,5 +511,73 @@ class DeepFeedforwardPolicy(nn.Module):
         _, _, grad_i = grad_i_t[0], grad_i_t[1], grad_i_t[2]
         noise = self._compute_grad_noise(grad_i)
         return (grad_i_t[0], grad_i_t[1], grad_i + noise)
+
+
+class NeuralPolicy(object):
+    def __init__(self,
+                 model,
+                 dataloader,
+                 train_starts_at=500,
+                 train_freq=50,
+                 set_gpu=False
+        ):
+        self._model = model
+        self._dataloader = dataloader
+        self._train_starts_at = train_starts_at
+        self._train_freq = train_freq
+        self._t = 0
+        self._t_update = 0
+        self._set_gpu = set_gpu
+
+
+    def choose_action(self, x_t):
+        # make x_t -> x_ta
+        u_t, S_t = x_t
+        n_actions = S_t.shape[0]
+
+        # torch.nn.Linear sets bias automatically
+
+        r_preds = np.zeros(n_actions)
+        for j in range(n_actions):
+            x_ta = np.concatenate( (u_t, S_t[j, :]) )
+            x_ta = torch.from_numpy(x_ta)
+            # type cast to match the default dtype of torch
+            x_ta = x_ta.float()
+            # predict
+            r_pred = self._model.predict(x_ta)
+            if self._set_gpu:
+                r_preds[j] = r_pred.data.cpu().numpy()[0]
+            else:
+                r_preds[j] = r_pred.data.numpy()[0]
+
+
+        # @todo: consider proper tie-breaking
+        # encourage exploration
+        np.random.seed(0)
+        noise = np.random.uniform(0, 0.25, size=len(r_preds))
+        a_t = np.argmax(r_preds + noise)
+
+        return a_t
+
+
+    def update(self, a_t, x_t, r_t):
+        u_t, S_t = x_t
+        x_ta = np.concatenate( (u_t, S_t[a_t, :]) )
+
+        self._dataloader.add_sample(x_ta, r_t)
+        self._t += 1
+
+        # exploration phase to mitigate cold-start
+        # quite ill-defined
+        if self._t < self._train_starts_at:
+            return
+
+        # update posterior prioridically
+        # for computational reasons
+        n_samples = self._dataloader.n_samples
+        if n_samples % self._train_freq == 0:
+            self._t_update += 1
+            # train one epoch (full data)?
+            self._model.train(self._t_update, self._dataloader)
 
 
