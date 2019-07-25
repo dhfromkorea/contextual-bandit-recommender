@@ -89,9 +89,10 @@ class DBHelper(object):
         engine = create_engine("sqlite:///{}".format(self.DB_NAME))
         self._engine = engine
 
+        # @todo: remove this
         # start fresh for eval
-        Base.metadata.drop_all(engine)
-        Base.metadata.create_all(engine)
+        # Base.metadata.drop_all(engine)
+        # Base.metadata.create_all(engine)
 
         # get table metadata
         meta = MetaData(bind=engine)
@@ -239,9 +240,10 @@ class DBHelperBulk(object):
         engine = create_engine("sqlite:///{}".format(self.DB_NAME))
         self._engine = engine
 
+        # @todo: remove this
         # start fresh for eval
-        Base.metadata.drop_all(engine)
-        Base.metadata.create_all(engine)
+        # Base.metadata.drop_all(engine)
+        # Base.metadata.create_all(engine)
 
 
         # get table metadata
