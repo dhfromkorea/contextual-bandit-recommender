@@ -239,7 +239,7 @@ class LinearGaussianThompsonSamplingPolicy(object):
             ]
         except np.linalg.LinAlgError as e:
             print("Error in {}".format(type(self).__name__))
-            print('Errors: {} | {}.'.format(e.message, e.args))
+            print('Errors: {}.'.format(e.args[0]))
             beta = [
                 np.random.multivariate_normal(
                     np.zeros(self._d), np.eye(self._d)
