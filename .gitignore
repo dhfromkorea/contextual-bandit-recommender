@@ -4,6 +4,8 @@
 *.tgz
 *.npy
 *.nz
+*.txt
+yahoo_news*
 datasets/news/v1/
 datasets/news/v2/
 ideas.txt
