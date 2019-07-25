@@ -1,217 +1,54 @@
 """
 """
-import numpy as np
-import pandas as pd
-from pprint import pprint as pp
 
+import argparse
+import logging
+import time
+import sys
 
-from datasets.synthetic.sample_data import sample_synthetic
-from datasets.mushroom.sample_data import sample_mushroom
-from datasets.preprocessing import load_data
-from datasets.news.sample_data import sample_user_event
+from runner_cb import run_context_bandit, write_results_cb
+from runner_acb import run_action_context_bandit, write_results_acb
 
-from models.context_free_policy import (
-        EpsilonGreedyPolicy,
-        RandomPolicy,
-        SampleMeanPolicy,
-        UCBPolicy,
-)
-from models.context_based_policy import (
-        LinUCBPolicy,
-        LinearGaussianThompsonSamplingPolicy,
-)
-from models.action_context_based_policy import (
-        SharedLinUCBPolicy,
-        SharedLinearGaussianThompsonSamplingPolicy,
-)
-from simulate import (
-        simulate_contextual_bandit,
-        simulate_contextual_bandit_partial_label,
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+        filename="train.log",
+        filemode="a",
+        format="%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s",
+        datefmt="%H:%M:%S",
+        level=logging.DEBUG
 )
 
-# we should forget about small efficiencies
-# say about 97% of the time
-# premature optimization is the root of the evil
-# yet, we should not pass up opportunities
-# for the critical 3%
 
-def main_action_context(args):
-    """
-    runner for problems that have action context
+def arg_parser():
+    parser = argparse.ArgumentParser()
 
-    action context = features for each valid action
-    """
+    TASK_LIST = ["mushroom", "synthetic", "news"]
 
-    task = args["task"]
+    parser.add_argument("task", type=str, choices=TASK_LIST)
+    parser.add_argument("--n_trials", type=int, default=1, help="number of \
+            independent trials for experiments")
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--n_rounds", type=int, default=1000)
+    parser.add_argument("--is_acp", action="store_true", help="whether the \
+            task is an action context problem")
 
-    uv_generator = sample_user_event()
-
-    T = 10**5
-
-    n_actions = 20
-    context_dim = 6 + 6
-
-    rp = RandomPolicy(n_actions)
-
-    linucbp = SharedLinUCBPolicy(
-            context_dim=context_dim,
-            delta=0.25,
-            train_starts_at=50,
-            train_freq=50
-    )
-
-    lgtsp = SharedLinearGaussianThompsonSamplingPolicy(
-                context_dim=context_dim,
-                eta_prior=6.0,
-                lambda_prior=0.25,
-                train_starts_at=50,
-                posterior_update_freq=50
-    )
-
-
-    policies = [rp, linucbp, lgtsp]
-    policy_names = ["rp", "linucbp", "lgtsp"]
-
-    results = simulate_contextual_bandit_partial_label(uv_generator, T, policies)
-
-
-    # log results
-    cumrew_data = None
-    for i in range(len(policies)):
-        cr = results[i]["cum_reward"][:, None]
-        if cumrew_data is None:
-            cumrew_data = cr
-        else:
-            cumrew_data = np.hstack( (cumrew_data, cr) )
-
-
-    df = pd.DataFrame(cumrew_data, columns=policy_names)
-    df.to_csv("{}.cumrew.csv".format(task), header=True, index=False)
-
-
-    CTR_data = None
-    for i in range(len(policies)):
-        cr = results[i]["CTR"][:, None]
-        if CTR_data is None:
-            CTR_data = cr
-        else:
-            CTR_data = np.hstack( (CTR_data, cr) )
-
-
-    df = pd.DataFrame(CTR_data, columns=policy_names)
-    df.to_csv("{}.CTR.csv".format(task), header=True, index=False)
-
-
-def main(args):
-    """TODO: Docstring for main.
-
-    Parameters
-    ----------
-    arg1 : TODO
-
-    Returns
-    -------
-    TODO
-
-    """
-
-    task = args["task"]
-
-    if task == "mushroom":
-        X, y = load_data(name="mushroom")
-        # simulate the problem T steps
-        n_samples = 5 * (10 ** 4)
-        #n_samples = 10000
-        context_dim = 117
-        n_actions = 2
-
-        # optimal strategy
-        # if good -> eat
-        # if bad -> not eat
-
-        samples = sample_mushroom(X,
-                                  y,
-                                  n_samples,
-                                  r_eat_good=5.0,
-                                  r_eat_bad_lucky=5.0,
-                                  r_eat_bad_unlucky=-35.0,
-                                  r_eat_bad_lucky_prob=0.5,
-                                  r_no_eat=0.0
-                                  )
-
-    elif task == "synthetic":
-        n_samples = 5000
-        n_actions = 5
-        context_dim = 10
-        sigma = 1.0 # set low covariance
-        samples = sample_synthetic(n_samples, n_actions, context_dim, sigma)
-
-    else:
-        raise NotImplementedError
-
-
-    # define a solver
-    rp = RandomPolicy(n_actions)
-    smp = SampleMeanPolicy(n_actions)
-    egp = EpsilonGreedyPolicy(n_actions, lr=0.1, epsilon=0.1)
-    ucbp = UCBPolicy(n_actions=n_actions, lr=0.01)
-    linucbp = LinUCBPolicy(
-            n_actions=n_actions,
-            context_dim=context_dim,
-            delta=0.25,
-            train_starts_at=500,
-            train_freq=50)
-    lgtsp = LinearGaussianThompsonSamplingPolicy(
-                n_actions=n_actions,
-                context_dim=context_dim,
-                eta_prior=6.0,
-                lambda_prior=0.25,
-                train_starts_at=500,
-                posterior_update_freq=50
-            )
-
-    policies = [rp, smp, egp, ucbp, linucbp, lgtsp]
-    policy_names = ["rp", "smp", "egp", "ucbp", "linucbp", "lgtsp"]
-
-
-    # simulate a bandit over n_samples steps
-    results = simulate_contextual_bandit(samples, n_samples, policies)
-
-
-    # log results
-    cumreg_data = None
-    acts_data = None
-    for i in range(len(policies)):
-        cr = results[i]["cum_regret"][:, None]
-        if cumreg_data is None:
-            cumreg_data = cr
-        else:
-            cumreg_data = np.hstack( (cumreg_data, cr) )
-
-        acts = results[i]["log"][0, :][:, None]
-        if acts_data is None:
-            acts_data = acts
-        else:
-            acts_data = np.hstack( (acts_data, acts) )
-
-    # add opt_acts
-    # assume it's the same across policies
-    acts_opt = results[0]["log"][1, :][:, None]
-    acts_data = np.hstack( (acts_data, acts_opt) )
-
-
-    df = pd.DataFrame(cumreg_data, columns=policy_names)
-    df.to_csv("{}.cumreg.csv".format(task), header=True, index=False)
-
-    df = pd.DataFrame(acts_data, columns=policy_names + ["opt_p"])
-    df.to_csv("{}.acts.csv".format(task), header=True, index=False)
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
-    args = {}
-    #args["task"] = "mushroom"
-    #main(args)
-    #args["task"] = "synthetic"
-    #main(args)
-    args["task"] = "news"
-    main_action_context(args)
+    args = arg_parser()
+
+    logger.info("task: running {} trials with {} rounds".format(args.task, \
+                args.n_trials, args.n_rounds))
+
+    for trial_idx in range(args.n_trials):
+        logger.info("{}th trial started".format(trial_idx))
+        start_t = time.time()
+        if args.is_acp:
+            results, policies, policy_names = run_action_context_bandit(args)
+            write_results_acb(results, policies, policy_names, trial_idx, args)
+        else:
+            results, policies, policy_names = run_context_bandit(args)
+            write_results_cb(results, policies, policy_names, trial_idx, args)
+        logger.info("{}th trial ended after {:.2f}s".format(trial_idx,
+            time.time() - start_t))
