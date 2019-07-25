@@ -1,7 +1,19 @@
 """
 """
+
+import sys
+import argparse
+
 import numpy as np
 from scipy.stats import invgamma
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.autograd import Variable
+import torchvision.datasets as dsets
+from torch.nn.utils import clip_grad_norm
+import torchvision.transforms as transforms
 
 
 class SharedLinUCBPolicy(object):
@@ -309,4 +321,182 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
         n_samples = X_t.shape[0]
         if n_samples % self._update_freq == 0:
             self._update_posterior(X_t, r_t_list)
+
+
+class DeepFeedforwardPolicy(nn.Module):
+    """
+    a simple feedforward network
+    that estimates E[R_t | X_ta]
+
+    """
+    def __init__(self, input_dim,
+                       hidden_dim,
+                       output_dim,
+                       n_layer,
+                       learning_rate,
+                       set_gpu,
+                       grad_noise,
+                       gamma,
+                       eta,
+                       grad_clip,
+                       grad_clip_norm,
+                       grad_clip_value,
+                       weight_decay,
+                       debug):
+        super().__init__()
+
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
+        self.output_dim = output_dim
+        self.set_gpu = set_gpu
+        self.debug = debug
+
+        self.model = nn.Sequential()
+        self.model.add_module("input", nn.Linear(input_dim, hidden_dim))
+        for i in range(n_layer - 1):
+            self.model.add_module("fc{}".format(i+1), nn.Linear(hidden_dim, hidden_dim))
+            self.model.add_module("relu{}".format(i+1), nn.ReLU())
+        self.model.add_module("fc{}".format(n_layer), nn.Linear(hidden_dim, output_dim))
+
+        #self.model.apply(self.initialize_weight)
+
+        # initialize weights
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out')
+                #nn.init.constant_(m.bias, 0)
+
+
+        self.opt = torch.optim.SGD(self.model.parameters(),
+                                   lr=learning_rate,
+                                   weight_decay=weight_decay)
+
+        # output layer implicitly defined by this
+        self.criterion = nn.MSELoss()
+        # self.criterion = nn.CrossEntropyLoss()
+
+        self._step = 0
+        self.grad_noise = grad_noise
+        self._gamma = gamma
+        self._eta = eta
+
+        if self.grad_noise:
+            for m in self.model.modules():
+                classname = m.__class__.__name__
+                if classname.find("Linear") != -1:
+                    m.register_backward_hook(self.add_grad_noise)
+
+
+        self._grad_clip = grad_clip
+        self._grad_clip_norm = grad_clip_norm
+        self._grad_clip_value = grad_clip_value
+
+        if set_gpu:
+            self.cuda()
+
+    def predict(self, x):
+        self.model.eval()
+        return self.model(x)
+
+
+    def train(self, epoch, train_loader):
+        """TODO: Docstring for train.
+        Parameters
+        ----------
+        arg1 : TODO
+        Returns
+        -------
+        TODO
+        """
+        self.model.train()
+        total_loss = 0.0
+
+        # sample batches
+        batches = train_loader.sample()
+
+        for batch_idx, (data, target) in enumerate(batches):
+
+
+            # @todo: refactor this
+            # type cast to match the default dtype of torch
+            data = torch.from_numpy(data)
+            data = data.float()
+            target = torch.from_numpy(target)
+            target = target.float()
+
+            if self.set_gpu:
+                data, target = Variable(data).cuda(), Variable(target).cuda()
+            else:
+                data, target = Variable(data), Variable(target)
+            data = data.view(-1, self.input_dim)
+
+            self.opt.zero_grad()
+
+            output = self.model(data)
+            loss = self.criterion(output, target)
+
+            loss.backward()
+
+            if self._grad_clip:
+                clip_grad_norm(self.model.parameters(), self._grad_clip_value, self._grad_clip_norm)
+
+
+            if self.debug and batch_idx % 10 == 0:
+                for layer in self.model.modules():
+                    if np.random.rand() > 0.95:
+                        if isinstance(layer, nn.Linear):
+                            weight = layer.weight.data.numpy()
+                            print("========================")
+                            print("weight\n")
+                            print("max:{}\tmin:{}\tavg:{}\n".format(weight.max(), weight.min(), weight.mean()))
+                            grad = layer.weight.grad.data.numpy()
+                            print("grad\n")
+                            print("max:{}\tmin:{}\tavg:{}\n".format(grad.max(), grad.min(), grad.mean()))
+                            print("=========================")
+
+            self.opt.step()
+            self._step += 1
+
+            if np.isnan(loss.data.item()):
+                raise Exception("gradient exploded or vanished: try clipping gradient")
+
+
+            if batch_idx % 100 == 0:
+                sys.stdout.flush()
+                sys.stdout.write('\rTrain Epoch: {:<2} [{:<5}/{:<5} ({:<2.0f}%)]\tLoss: {:.6f}'.format(
+                    epoch + 1, batch_idx * len(data), len(train_loader),
+                    100. * batch_idx / len(train_loader), loss.data.item()))
+
+            total_loss += loss.data.item()
+
+        return total_loss/len(train_loader)
+
+
+    def _compute_grad_noise(self, grad):
+        """TODO: Docstring for function.
+        Parameters
+        ----------
+        arg1 : TODO
+        Returns
+        -------
+        TODO
+        """
+
+        std = np.sqrt(self._eta / (1 + self._step)**self._gamma)
+        return Variable(grad.data.new(grad.size()).normal_(0, std=std))
+
+
+    def add_grad_noise(self, module, grad_i_t, grad_o):
+        """TODO: Docstring for add_noise.
+        Parameters
+        ----------
+        arg1 : TODO
+        Returns
+        -------
+        TODO
+        """
+        _, _, grad_i = grad_i_t[0], grad_i_t[1], grad_i_t[2]
+        noise = self._compute_grad_noise(grad_i)
+        return (grad_i_t[0], grad_i_t[1], grad_i + noise)
+
 
