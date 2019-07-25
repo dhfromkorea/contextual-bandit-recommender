@@ -1,12 +1,12 @@
 """
 Basic data model design:
 
-user (one)---- (many) user_visit_event (one; displayed)---(many)article
-                         (one; considered for display)              (many)
-                           |                                          |
-                           |                                          |
-                         (many)                                    (one)
-                   shortlist (many) ---------(one)          shortlist_article
+User (one)---- (many) UserVisitEvent (one; displayed)-----------(many) Article
+                         (one; considered for display)                 (many)
+                           |                                             |
+                           |                                             |
+                         (many)                                        (one)
+                      Shortlist           (many) ---------(one) ShortlistArticle
 """
 
 from datetime import datetime
@@ -89,6 +89,9 @@ class DBHelper(object):
         engine = create_engine("sqlite:///{}".format(self.DB_NAME))
         self._engine = engine
 
+        # start fresh for eval
+        Base.metadata.drop_all(engine)
+        Base.metadata.create_all(engine)
 
         # get table metadata
         meta = MetaData(bind=engine)
@@ -101,7 +104,7 @@ class DBHelper(object):
         # if all tables exist
         if len(meta.sorted_tables) == 0:
             # create from scratch
-            Base.metadata.create_all(engine)
+            #Base.metadata.create_all(engine)
             self._shortlists = {}
             self._articles = set()
 
@@ -236,6 +239,10 @@ class DBHelperBulk(object):
         engine = create_engine("sqlite:///{}".format(self.DB_NAME))
         self._engine = engine
 
+        # start fresh for eval
+        Base.metadata.drop_all(engine)
+        Base.metadata.create_all(engine)
+
 
         # get table metadata
         meta = MetaData(bind=engine)
@@ -248,9 +255,9 @@ class DBHelperBulk(object):
         # if all tables exist
         if len(meta.sorted_tables) == 0:
             # create from scratch
-            Base.metadata.create_all(engine)
+            #Base.metadata.create_all(engine)
             self._shortlists = {}
-            self._articles = {}
+            self._articles = set()
         else:
             q = self._session.query
             shortlists = q(Shortlist).all()
@@ -413,8 +420,7 @@ def main():
     """
 
     dbh = DBHelper()
-
-    #dbh.reset_all_data()
+    dbh.reset_all_data()
 
     reader = read_user_event()
 
@@ -428,13 +434,11 @@ def main():
     # for each file
     while True:
         try:
-            if i % 100000 == 0:
-                print("{}th 100000 samples written in {}s!".format(i, time.time() - start_t))
-                start_t = time.time()
-
-            if i % 1000 == 0:
+            if i % 10000 == 0:
+                print("{}th-batch 10000 samples written in {:.2f}s!".format(i, time.time() - start_t))
                 # commit every now and then
                 dbh._session.commit()
+                start_t = time.time()
 
             uv_event_string = next(reader)
             uv = parse_uv_event(uv_event_string)
@@ -445,6 +449,9 @@ def main():
 
             dbh.write_user_event(uv)
             i += 1
+
+            if i > 6 * 10**5:
+                break
 
         except StopIteration:
             # end of file
@@ -462,7 +469,6 @@ def main_bulk():
     from sample_data import read_user_event, parse_uv_event
 
     dbh_bulk = DBHelperBulk()
-
     dbh_bulk.reset_all_data()
 
     reader = read_user_event()
@@ -477,22 +483,26 @@ def main_bulk():
     # for each file
     while True:
         try:
-
-            uv_list = [parse_uv_event(next(reader)) for i in range(1000)]
+            uv_list = []
+            for _ in range(10000):
+                uv = parse_uv_event(next(reader))
+                if not uv is None:
+                    uv_list.append(uv)
 
             dbh_bulk.write_user_event(uv_list)
-            print("{}th 1000-bulk write done in {}s!".format(i, time.time() - start_t))
+            print("{}th-batch 10000 samples written in {:.2f}s!".format(i, time.time() - start_t))
             start_t = time.time()
 
             i += 1
 
+            if i > 60:
+                break
         except StopIteration:
             # end of file
             break
 
 
     dbh_bulk._session.commit()
-
 
 
 if __name__ == "__main__":

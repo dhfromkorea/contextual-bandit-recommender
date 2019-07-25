@@ -68,7 +68,6 @@ def parse_uv_event(user_visit):
         return None
 
 
-
 def extract_data():
     from glob import glob
     compressed = glob(os.path.join(news_data_path, "*.gz"))
