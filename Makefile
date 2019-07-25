@@ -1,4 +1,5 @@
 # indentation must be taps
+APP_NAME="cb-recommender"
 TEST_PATH="./tests"
 MUSHROOM_DEST="./datasets/mushroom/mushroom.csv"
 MUSHROOM_SOURCE="https://archive.ics.uci.edu/ml/machine-learning-databases/mushroom/agaricus-lepiota.data"
@@ -29,5 +30,16 @@ fetch-data:
 clean-pyc:
 	find . -name '*.pyc' -delete
 	find . -name '*.pyo' -delete
+
+
+docker-run:
+	docker build \
+      --file=./Dockerfile \
+      --tag=$(APP_NAME) ./
+	docker run \
+      --detach=false \
+      --name=$(APP_NAME) \
+      --publish=$(HOST):8080 \
+      my_project
 
 .PHONY: clean-pyc
