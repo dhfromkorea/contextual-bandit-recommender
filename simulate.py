@@ -6,15 +6,6 @@ simulate 1...T steps of contextual bandits
 """
 import numpy as np
 
-def moving_average(arr, n):
-    """
-    returns moving average for CTR
-    credit: https://stackoverflow.com/questions/14313510/how-to-calculate-moving-average-using-numpy
-    """
-    cs = np.cumsum(arr, dtype=float)
-    cs[n:] = cs[n:] - cs[:-n]
-    return cs[n-1:] / n
-
 
 def simulate_contextual_bandit(data, n_samples, policies):
     """
@@ -112,7 +103,7 @@ def simulate_contextual_bandit_partial_label(data_generator, n_samples, policies
         results[i]["policy"] = policy
         rewards = results[i]["reward"]
         results[i]["cum_reward"] = np.cumsum(rewards)
-        results[i]["CTR"] = moving_average(rewards, n=50)
+        results[i]["CTR"] = np.array(rewards)
 
     return results
 
