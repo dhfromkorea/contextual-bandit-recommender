@@ -1,8 +1,11 @@
+
 import numpy as np
 import pandas as pd
+import torch
 
 
 from datasets.news.sample_data import sample_user_event
+from datasets.bandit_data import BanditData
 
 from models.context_free_policy import (
         RandomPolicy
@@ -10,6 +13,8 @@ from models.context_free_policy import (
 from models.action_context_based_policy import (
         SharedLinUCBPolicy,
         SharedLinearGaussianThompsonSamplingPolicy,
+        FeedForwardNetwork,
+        NeuralPolicy,
 )
 from simulate import (
         simulate_contextual_bandit_partial_label,
@@ -47,9 +52,48 @@ def run_action_context_bandit(args):
                 posterior_update_freq=500
     )
 
+    # prepare nueral policy
 
-    policies = [rp, linucbp, lgtsp]
-    policy_names = ["rp", "linucbp", "lgtsp"]
+    np.random.seed(0)
+    torch.manual_seed(0)
+
+    batch_size = args.batch_size
+    set_gpu = args.cuda
+    eta = args.eta
+    gamma = args.gamma
+
+    grad_clip = args.grad_clip
+    grad_clip_norm = args.grad_clip_norm
+    grad_clip_value = args.grad_clip_value
+
+    grad_noise = args.grad_noise
+
+
+    ffn = FeedForwardNetwork(input_dim=context_dim,
+                              hidden_dim=50,
+                              output_dim=1,
+                              n_layer=2,
+                              learning_rate=args.lr,
+                              set_gpu=set_gpu,
+                              grad_noise=grad_noise,
+                              gamma=gamma,
+                              eta=eta,
+                              grad_clip=grad_clip,
+                              grad_clip_norm=grad_clip_norm,
+                              grad_clip_value=grad_clip_value,
+                              weight_decay=args.weight_decay,
+                              debug=args.debug)
+
+    # batch data loader
+    bd = BanditData(batch_size)
+
+    neuralp = NeuralPolicy(ffn, bd, train_starts_at=500, train_freq=50,
+            set_gpu=set_gpu)
+
+    #policies = [rp, linucbp, lgtsp, neuralp]
+    #policy_names = ["rp", "linucbp", "lgtsp", neuralp]
+    policies = [neuralp]
+    policy_names = ["neuralp"]
 
     results = simulate_contextual_bandit_partial_label(uv_generator, n_rounds, policies)
 
@@ -85,4 +129,5 @@ def write_results_acb(results, policies, policy_names, trial_idx, args):
 
     df = pd.DataFrame(CTR_data, columns=policy_names)
     df.to_csv("{}.CTR.{}.csv".format(args.task, trial_idx), header=True, index=False)
+
 
