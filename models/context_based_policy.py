@@ -18,6 +18,9 @@ class LinUCBPolicy(object):
                 np.identity(self._d)
                 for _ in range(self._n_actions)
         ]
+        # for computational reasons
+        # we update every train_freq
+        self._A_inv = np.linalg.inv(self._A)
 
         self._b = [
                 np.zeros(self._d)
@@ -25,7 +28,8 @@ class LinUCBPolicy(object):
         ]
 
         self._theta = [
-                np.linalg.lstsq(self._A[j], self._b[j], rcond=None)[0]
+                #np.linalg.lstsq(self._A[j], self._b[j], rcond=None)[0]
+                self._A_inv[j].dot(self._b[j])
                 for j in range(self._n_actions)
         ]
 
@@ -71,7 +75,7 @@ class LinUCBPolicy(object):
 
         for j in range(self._n_actions):
             # compute upper bound
-            k_ta = x_t.T.dot(np.linalg.inv(self._A[j])).dot(x_t)
+            k_ta = x_t.T.dot(self._A_inv[j]).dot(x_t)
             ubc_t[j] = self._alpha * np.sqrt(k_ta)
             Q[j] = self._theta[j].dot(x_t) + ubc_t[j]
 
@@ -102,7 +106,8 @@ class LinUCBPolicy(object):
         if self._t % self._train_freq == 0:
             # solve linear systems for one action
             # using lstsq to handle over/under determined systems
-            self._theta[a_t] = np.linalg.lstsq(self._A[a_t], self._b[a_t], rcond=None)[0]
+            #self._theta[a_t] = np.linalg.lstsq(self._A[a_t], self._b[a_t], rcond=None)[0]
+            self._theta[a_t] = self._A_inv[a_t].dot(self._b[a_t])
 
 
 class LinearGaussianThompsonSamplingPolicy(object):
