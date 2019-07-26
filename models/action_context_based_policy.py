@@ -516,7 +516,6 @@ class FeedForwardNetwork(nn.Module):
             total_loss += loss.data.item()
 
         sys.stdout.flush()
-        print("")
 
         return total_loss/len(train_loader)
 

@@ -95,6 +95,7 @@ def simulate_contextual_bandit_partial_label(data_generator, n_samples, policies
 
             t += 1
 
+            print("")
             if t_1 > n_samples:
                 print("{:.2f}% data useful".format(t_1/t * 100))
                 break
