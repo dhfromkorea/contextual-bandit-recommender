@@ -6,7 +6,7 @@ MUSHROOM_SOURCE="https://archive.ics.uci.edu/ml/machine-learning-databases/mushr
 WINDOW=256
 
 N_TRIALS=1
-N_ROUNDS=1000
+N_ROUNDS=2000
 
 init:
 	pip install -r requirements.txt

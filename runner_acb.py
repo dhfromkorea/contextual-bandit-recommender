@@ -92,8 +92,14 @@ def run_action_context_bandit(args):
 
     policies = [rp, linucbp, lgtsp, neuralp]
     policy_names = ["rp", "linucbp", "lgtsp", "neuralp"]
+    #policies = [lgtsp]
+    #policy_names = ["lgtsp"]
 
+    #import time
+    #start_t = time.time()
     results = simulate_contextual_bandit_partial_label(uv_generator, n_rounds, policies)
+    #print("took {}s / 1 trial with {}".format(time.time() - start_t,
+    #    policy_names[0]))
 
     return results, policies, policy_names
 
