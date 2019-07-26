@@ -50,10 +50,13 @@ class SharedLinUCBPolicy(object):
 
         # initialize with I_d, 0_d
         self._A = np.identity(self._d)
+        # we will update this every train_freq
+        self._A_inv = np.linalg.inv(self._A)
 
         self._b = np.zeros(self._d)
 
-        self._theta = np.linalg.lstsq(self._A, self._b, rcond=None)[0]
+        #self._theta = np.linalg.lstsq(self._A, self._b, rcond=None)[0]
+        self._theta = np.linalg.inv(self._A).dot(self._b)
 
         self._alpha = 1 + np.sqrt(np.log(2/delta)/2)
 
@@ -108,7 +111,7 @@ class SharedLinUCBPolicy(object):
             assert len(x_t) == self._d
 
             # compute upper bound
-            k_ta = x_t.T.dot(np.linalg.inv(self._A)).dot(x_t)
+            k_ta = x_t.T.dot(self._A_inv).dot(x_t)
             ubc_t[j] = self._alpha * np.sqrt(k_ta)
             Q[j] = self._theta.dot(x_t) + ubc_t[j]
 
@@ -143,7 +146,9 @@ class SharedLinUCBPolicy(object):
         if self._t % self._train_freq == 0:
             # solve linear systems for one action
             # using lstsq to handle over/under determined systems
-            self._theta = np.linalg.lstsq(self._A, self._b, rcond=None)[0]
+            #self._theta = np.linalg.lstsq(self._A, self._b, rcond=None)[0]
+            self._A_inv = np.linalg.inv(self._A)
+            self._theta = self._A_inv.dot(self._b)
 
 
 class SharedLinearGaussianThompsonSamplingPolicy(object):
