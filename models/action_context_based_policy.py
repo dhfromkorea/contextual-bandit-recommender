@@ -571,19 +571,33 @@ class NeuralPolicy(object):
         n_actions = S_t.shape[0]
 
         # torch.nn.Linear sets bias automatically
+        # j x |u_t|
+        U_t = np.tile(u_t, (n_actions, 1))
+        # j x (|u_t| + |s_t|)
+        X_ta = np.hstack( (U_t, S_t) )
+        X_ta = torch.from_numpy(X_ta)
+        # type cast to match the default dtype of torch
+        X_ta = X_ta.float()
+        # predict
+        r_preds = self._model.predict(X_ta)
 
-        r_preds = np.zeros(n_actions)
-        for j in range(n_actions):
-            x_ta = np.concatenate( (u_t, S_t[j, :]) )
-            x_ta = torch.from_numpy(x_ta)
-            # type cast to match the default dtype of torch
-            x_ta = x_ta.float()
-            # predict
-            r_pred = self._model.predict(x_ta)
-            if self._set_gpu:
-                r_preds[j] = r_pred.data.cpu().numpy()[0]
-            else:
-                r_preds[j] = r_pred.data.numpy()[0]
+        if self._set_gpu:
+            r_preds = r_preds.data.cpu().numpy().squeeze()
+        else:
+            r_preds = r_preds.data.numpy().squeeze()
+
+        #r_preds = np.zeros(n_actions)
+        #for j in range(n_actions):
+        #    x_ta = np.concatenate( (u_t, S_t[j, :]) )
+        #    x_ta = torch.from_numpy(x_ta)
+        #    # type cast to match the default dtype of torch
+        #    x_ta = x_ta.float()
+        #    # predict
+        #    r_pred = self._model.predict(x_ta)
+        #    if self._set_gpu:
+        #        r_preds[j] = r_pred.data.cpu().numpy()[0]
+        #    else:
+        #        r_preds[j] = r_pred.data.numpy()[0]
 
 
         # @todo: consider proper tie-breaking

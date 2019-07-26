@@ -90,16 +90,16 @@ def run_action_context_bandit(args):
     neuralp = NeuralPolicy(ffn, bd, train_starts_at=args.train_starts_at,
             train_freq=args.train_freq, set_gpu=set_gpu)
 
-    policies = [rp, linucbp, lgtsp, neuralp]
-    policy_names = ["rp", "linucbp", "lgtsp", "neuralp"]
-    #policies = [lgtsp]
-    #policy_names = ["lgtsp"]
+    #policies = [rp, linucbp, lgtsp, neuralp]
+    #policy_names = ["rp", "linucbp", "lgtsp", "neuralp"]
+    policies = [neuralp]
+    policy_names = ["neuralp"]
 
-    #import time
-    #start_t = time.time()
+    import time
+    start_t = time.time()
     results = simulate_contextual_bandit_partial_label(uv_generator, n_rounds, policies)
-    #print("took {}s / 1 trial with {}".format(time.time() - start_t,
-    #    policy_names[0]))
+    print("took {}s / 1 trial with {}".format(time.time() - start_t,
+        policy_names[0]))
 
     return results, policies, policy_names
 
