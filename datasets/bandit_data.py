@@ -12,7 +12,7 @@ class BanditData(object):
 
     """
 
-    def __init__(self, batch_size, epoch_len=100):
+    def __init__(self, batch_size, epoch_len=32):
         self._epoch_len = epoch_len
         self._batch_size = batch_size
         self._n_samples = 0
@@ -30,13 +30,19 @@ class BanditData(object):
         indices = np.arange(n_samples)
 
         if self._n_samples < self._batch_size * self._epoch_len:
-            X = self._D[:, :-1]
-            y = self._D[:, -1][:, None]
+            #indices = np.random.choice(indices, size=self._batch_size)
+            #X = self._D[indices, :-1]
+            #y = self._D[indices, -1][:, None]
 
-            return (X, y)
+            #return (X, y)
+            batch_len = self.n_samples // self._batch_size
+        else:
+            batch_len = self._epoch_len
 
-        for _ in range(self._epoch_len):
-            indices = np.random.choice(indices, size=self._batch_size)
+        for _ in range(batch_len):
+            indices = np.random.choice(indices,
+                                       size=self._batch_size,
+                                       replace=False)
             X = self._D[indices, :-1]
             y = self._D[indices, -1][:, None]
 

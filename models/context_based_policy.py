@@ -149,11 +149,14 @@ class LinearGaussianThompsonSamplingPolicy(object):
                  eta_prior=6.0,
                  lambda_prior=0.25,
                  train_starts_at=500,
-                 posterior_update_freq=50):
+                 posterior_update_freq=50,
+                 batch_mode=True,
+                 batch_size=512,
+                 lr=0.1
+        ):
         """
         a_0; location for IG t=0
         b_0; scale for IG t=0
-
 
         """
 
@@ -193,8 +196,15 @@ class LinearGaussianThompsonSamplingPolicy(object):
         # remember training data
         self._train_data = [None] * n_actions
 
+        # for computational efficiency
+        # train on a random subset
+        self._batch_mode = batch_mode
+        self._batch_size = batch_size
+        self._lr = lr
 
-    def _update_posterior(self, action_idx, X_t, r_t_list):
+
+
+    def _update_posterior(self, act_t, X_t, r_t_list):
         """
         p(w, sigma^2) = p(mu|cov)p(a, b)
 
@@ -211,10 +221,27 @@ class LinearGaussianThompsonSamplingPolicy(object):
         precision_t = np.linalg.inv(cov_t)
         b_t = self._b_0 + 0.5*(r - np.dot(mu_t.T, np.dot(precision_t, mu_t)))
 
-        self._cov_list[action_idx] = cov_t
-        self._mu_list[action_idx] = mu_t
-        self._a_list[action_idx] = a_t
-        self._b_list[action_idx] = b_t
+        self._cov_list[act_t] = cov_t
+        self._mu_list[act_t] = mu_t
+        self._a_list[act_t] = a_t
+        self._b_list[act_t] = b_t
+
+
+        if self._batch_mode:
+            # learn bit by bit
+            self._cov_list[act_t] = cov_t * self._lr + \
+                    self._cov_list[act_t] * (1 - self._lr)
+            self._mu_list[act_t] = mu_t * self._lr + \
+                    self._mu_list[act_t] * (1 - self._lr)
+            self._a_list[act_t] = a_t * self._lr + \
+                    self._a_list[act_t] * (1 - self._lr)
+            self._b_list[act_t] = b_t * self._lr + \
+                    self._b_list[act_t] * (1 - self._lr)
+        else:
+            self._cov_list[act_t] = cov_t
+            self._mu_list[act_t] = mu_t
+            self._a_list[act_t] = a_t
+            self._b_list[act_t] = b_t
 
 
     def _sample_posterior_predictive(self, x_t, n_samples=1):
@@ -300,20 +327,21 @@ class LinearGaussianThompsonSamplingPolicy(object):
         if n_samples % self._update_freq == 0:
             self._update_posterior(a_t, X_t, r_t_list)
 
-    def _get_train_data(self, action_idx):
-        return self._train_data[action_idx]
+
+    def _get_train_data(self, a_t):
+        return self._train_data[a_t]
 
 
-    def _set_train_data(self, action_idx, x_t, r_t):
+    def _set_train_data(self, a_t, x_t, r_t):
         # add bias
         x_t = np.append(x_t, 1)
 
-        if self._train_data[action_idx] is None:
+        if self._train_data[a_t] is None:
             X_t = x_t[None, :]
-            r_t_list = [r_t]
+            r_t_list = np.array([r_t])
 
         else:
-            X_t, r_t_list = self._train_data[action_idx]
+            X_t, r_t_list = self._train_data[a_t]
             n = X_t.shape[0]
             X_t = np.vstack((X_t, x_t))
             assert X_t.shape[0] == (n+1)
@@ -321,5 +349,16 @@ class LinearGaussianThompsonSamplingPolicy(object):
 
             r_t_list = np.append(r_t_list, r_t)
 
-        self._train_data[action_idx] = (X_t, r_t_list)
+        # train on a random batch
+        n_samples = X_t.shape[0]
+        if self._batch_mode and self._batch_size < n_samples:
+            indices = np.arange(self._batch_size)
+            batch_indices = np.random.choice(indices,
+                                             size=self._batch_size,
+                                             replace=False)
+            X_t = X_t[batch_indices, :]
+            r_t_list = r_t_list[batch_indices]
+
+
+        self._train_data[a_t] = (X_t, r_t_list)
 

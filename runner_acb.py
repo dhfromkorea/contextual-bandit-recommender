@@ -70,9 +70,9 @@ def run_action_context_bandit(args):
 
 
     ffn = FeedForwardNetwork(input_dim=context_dim,
-                              hidden_dim=50,
+                              hidden_dim=64,
                               output_dim=1,
-                              n_layer=2,
+                              n_layer=3,
                               learning_rate=args.lr,
                               set_gpu=set_gpu,
                               grad_noise=grad_noise,
@@ -85,7 +85,8 @@ def run_action_context_bandit(args):
                               debug=args.debug)
 
     # batch data loader
-    bd = BanditData(batch_size, epoch_len=30)
+    bd = BanditData(batch_size, epoch_len=16)
+    # 16 x 64
 
     neuralp = NeuralPolicy(ffn, bd, train_starts_at=args.train_starts_at,
             train_freq=args.train_freq, set_gpu=set_gpu)

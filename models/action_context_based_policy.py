@@ -2,14 +2,12 @@
 """
 
 import sys
-import argparse
 
 import numpy as np
 from scipy.stats import invgamma
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.nn.utils import clip_grad_norm_
 
@@ -244,10 +242,10 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
 
         if self._batch_mode:
             # learn bit by bit
-            self._cov = cov_t * self.lr + self._cov * (1 - self.lr)
-            self._mu = mu_t * self.lr + self._cov * (1 - self.lr)
-            self._a = a_t * self.lr + self._cov * (1 - self.lr)
-            self._b = b_t * self.lr + self._cov * (1 - self.lr)
+            self._cov = cov_t * self._lr + self._cov * (1 - self._lr)
+            self._mu = mu_t * self._lr + self._cov * (1 - self._lr)
+            self._a = a_t * self._lr + self._cov * (1 - self._lr)
+            self._b = b_t * self._lr + self._cov * (1 - self._lr)
 
         else:
             self._cov = cov_t
@@ -338,7 +336,7 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
             X_t = x_t[None, :]
             r_t_list = np.array([r_t])
         else:
-            X_t, r_t_list = self._train_data[action_idx]
+            X_t, r_t_list = self._train_data[a_t]
             n = X_t.shape[0]
             X_t = np.vstack( (X_t, x_t))
             assert X_t.shape[0] == (n+1)
@@ -349,9 +347,11 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
         n_samples = X_t.shape[0]
         if self._batch_mode and self._batch_size < n_samples:
             indices = np.arange(self._batch_size)
-            batch_indices = np.random.choice(indices, size=self._batch_size)
+            batch_indices = np.random.choice(indices,
+                                             size=self._batch_size,
+                                             replace=False)
             X_t = X_t[batch_indices, :]
-            r_t_list = r_t[batch_indices]
+            r_t_list = r_t_list[batch_indices]
 
         self._train_data = (X_t, r_t_list)
 
@@ -507,7 +507,7 @@ class FeedForwardNetwork(nn.Module):
                 raise Exception("gradient exploded or vanished: try clipping gradient")
 
 
-            if batch_idx % 20 == 0:
+            if batch_idx % 5 == 0:
                 sys.stdout.flush()
                 sys.stdout.write('\rTrain Epoch: {:<2} [{:<5}/{:<5} ({:<2.0f}%)]\tLoss: {:.6f}'.format(
                     epoch + 1, batch_idx * len(data), len(train_loader),

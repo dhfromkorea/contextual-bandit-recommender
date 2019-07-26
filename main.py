@@ -46,7 +46,8 @@ def arg_parser():
     # neural network stuff
     parser.add_argument('--batch_size', type=int, default=64, help='input batch size')
     #parser.add_argument('--n_rounds', type=int, default=1000, help='number of epochs')
-    parser.add_argument('--lr', type=float, default=0.01, help='learning rate, default=0.01')
+    parser.add_argument('--lr', type=float, default=0.01, help='learning rate,
+            default=0.01')
     parser.add_argument('--grad_noise', action='store_true', help='add gradient noise')
     parser.add_argument('--eta', type=float, default=0.01, help='eta')
     parser.add_argument('--gamma', type=float, default=0.55, help='set gamme for guassian noise')
