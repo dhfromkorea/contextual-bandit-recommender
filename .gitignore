@@ -5,7 +5,9 @@
 *.npy
 *.nz
 *.txt
+
 yahoo_news*
+archives/
 datasets/news/v1/
 datasets/news/v2/
 ideas.txt
