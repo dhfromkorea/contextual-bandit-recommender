@@ -135,6 +135,6 @@ make test
 ```
 
 ### References
-[1]: http://rob.schapire.net/papers/www10.pdf
-[2]: https://en.wikipedia.org/wiki/Bayesian_linear_regression
+- [1]: http://rob.schapire.net/papers/www10.pdf
+- [2]: https://en.wikipedia.org/wiki/Bayesian_linear_regression
 
