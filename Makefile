@@ -1,5 +1,6 @@
 # indentation must be taps
 APP_NAME="cb-recommender"
+HOST="localhost"
 TEST_PATH="./tests"
 MUSHROOM_DEST="./datasets/mushroom/mushroom.csv"
 MUSHROOM_SOURCE="https://archive.ics.uci.edu/ml/machine-learning-databases/mushroom/agaricus-lepiota.data"
@@ -30,10 +31,13 @@ plot:
 fetch-data:
 	wget -O $(MUSHROOM_DEST) $(MUSHROOM_SOURCE)
 
+# asssumes yahoo_data in datautils/news/dataset.tgz
+process-news-data:
+	python datautils/news/db_tools.py
+
 clean-pyc:
 	find . -name '*.pyc' -delete
 	find . -name '*.pyo' -delete
-
 
 docker-run:
 	docker build \

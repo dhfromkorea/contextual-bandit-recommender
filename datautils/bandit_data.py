@@ -2,14 +2,10 @@ import numpy as np
 
 class BanditData(object):
     """
-
-    sample and update bandit training data
-
-    assumes i.i.d samples
-
-    samples uniformly at random
-
-
+    - stores a sample per step
+    - samples batches of training data
+    - sampling uniformly random
+    - assumes i.i.d samples
     """
 
     def __init__(self, batch_size, epoch_len=32):
@@ -17,24 +13,21 @@ class BanditData(object):
         self._batch_size = batch_size
         self._n_samples = 0
 
-        # n x (d + 1) matrix
-        # the last column is y
+        # design matrix + targets (y)
+        # the last column contains the targets
         self._D = None
 
-    def sample(self):
+    def sample_batches(self):
         """
-        sample epoch_len batches
-        where each batch of size = batch_size
+        epoch_len: number of batches
+
+        total number of samples
+        = epoch_len * batch_size
         """
         n_samples, _ = self._D.shape
         indices = np.arange(n_samples)
 
         if self._n_samples < self._batch_size * self._epoch_len:
-            #indices = np.random.choice(indices, size=self._batch_size)
-            #X = self._D[indices, :-1]
-            #y = self._D[indices, -1][:, None]
-
-            #return (X, y)
             batch_len = self.n_samples // self._batch_size
         else:
             batch_len = self._epoch_len
@@ -59,7 +52,8 @@ class BanditData(object):
 
     def add_sample(self, x, y):
         """
-        assumes an one sample update
+        assumes one sample update.
+        in an online setting.
         """
         if self._D is None:
             X = np.array(x).reshape(1, len(x))

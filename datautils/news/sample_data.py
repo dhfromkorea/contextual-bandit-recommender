@@ -3,22 +3,16 @@ from subprocess import Popen
 
 
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plot
-import seaborn as sns
-from pprint import pprint as pp
 
-# @todo: allow multiple files to be read
 news_data_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "v1"))
 
 ARTICLE_POOL_LENGTH = 20
 # ARTICLE_POOL remains the same
 
-def parse_uv_event(user_visit):
-    """
-    user_visit: str
-    """
 
+def parse_uv_event(user_visit):
+    """Parser for a user event string.
+    """
     try:
         uv_event = {}
 
@@ -28,12 +22,10 @@ def parse_uv_event(user_visit):
         uv_event["timestamp"] = tokens[0]
         uv_event["displayed_article_id"] = int(tokens[1])
         uv_event["is_clicked"]  = int(tokens[2])
-        user_marker = tokens[3]
-
-        #print("{}, {}, {}, {}".format(timestamp, article_id_dp, user_click, marker))
 
         uv_event["user"] = {}
 
+        user_marker = tokens[3]
         if user_marker == "|user":
             uv_event["user"] = [None] * n_features
 
@@ -50,7 +42,7 @@ def parse_uv_event(user_visit):
             article_marker = tokens[i]
             if article_marker[0] == "|" and article_marker[1:].isdigit():
                 # assumes pos int
-                article_id =  int(article_marker[1:])
+                article_id = int(article_marker[1:])
                 uv_event["article"][article_id] = [None] * n_features
                 for article_feature in tokens[i+1:i+7]:
                     feature_id, feature_val = article_feature.split(":")
@@ -61,13 +53,15 @@ def parse_uv_event(user_visit):
 
         return uv_event
 
-    except Exception as e:
+    except:
+        # corrupted data, ignore.
         # print("Error while parsing {}\n{}".format(tokens, e.args[0]))
-        # ignore this instance
         return None
 
 
 def extract_data():
+    """Extracts news data.
+    """
     from glob import glob
     compressed = glob(os.path.join(news_data_path, "*.gz"))
     for path in compressed:
@@ -86,15 +80,12 @@ def extract_data():
 
 
 def read_user_event():
+    """Lazily read news data.
+    """
     from glob import glob
     paths = glob(os.path.join(news_data_path, "*.data"))
 
     for path in paths:
-        if os.path.basename(path) == "ydata-fp-td-clicks-v1_0.20090501.data":
-            # @todo: temp fix. remove this
-            continue
-
-    #path = os.path.join(news_data_path, "ydata-fp-td-clicks-v1_0.20090501.data")
         with open(path, "r+") as f:
             for line in f:
                 yield line
@@ -102,12 +93,10 @@ def read_user_event():
 
 def sample_user_event():
     """
-    stream each line lazily
+    Sampler for a user visit event.
 
-    each line represents a user visit event that may or may not be usable for
-    a given policy
-
-    note we don't have the fully-labeled (for all actions)
+    Each user event sample that may or may not be usable for
+    a given policy. It assumes a partially observable reward setting.
     """
     reader = read_user_event()
 
@@ -127,7 +116,3 @@ def sample_user_event():
         revealed_act_hidden = i
 
         yield context_user, context_acts, r_acts, revealed_act_hidden
-
-
-
-
