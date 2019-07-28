@@ -5,6 +5,7 @@
 *.npy
 *.nz
 *.txt
+commit_message.txt
 
 yahoo_news*
 archives/
