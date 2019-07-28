@@ -39,9 +39,11 @@ fetch-data:
 process-news-data:
 	python datautils/news/db_tools.py
 
+
 clean-pyc:
 	find . -name '*.pyc' -delete
 	find . -name '*.pyo' -delete
+	find . -regex '^.*\(__pycache__\|\.py[co]\)$$' -delete
 
 docker-run:
 	docker build \
