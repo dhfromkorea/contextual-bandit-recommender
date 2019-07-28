@@ -21,12 +21,16 @@ lint:
 run:
 	python main.py "synthetic" --n_trials $(N_TRIALS) --n_rounds $(N_ROUNDS)
 	python main.py "mushroom" --n_trials $(N_TRIALS) --n_rounds $(N_ROUNDS)
-	python main.py "news" --n_trials $(N_TRIALS) --n_rounds $(N_ROUNDS) --is_acp --grad_clip
+	python main.py "news" --n_trials $(N_TRIALS) --n_rounds $(N_ROUNDS) \
+		--is_acp --grad_clip
 
 plot:
-	python plotting.py "synthetic" --n_trials $(N_TRIALS) --window $(WINDOW)
-	python plotting.py "mushroom" --n_trials $(N_TRIALS) --window $(WINDOW)
-	python plotting.py "news" --n_trials $(N_TRIALS) --window $(WINDOW)
+	python evaluations/plotting.py "synthetic" --n_trials $(N_TRIALS) \
+		--window $(WINDOW)
+	python evaluations/plotting.py "mushroom" --n_trials $(N_TRIALS) \
+		--window $(WINDOW)
+	python evaluations/plotting.py "news" --n_trials $(N_TRIALS) \
+		--window $(WINDOW)
 
 fetch-data:
 	wget -O $(MUSHROOM_DEST) $(MUSHROOM_SOURCE)

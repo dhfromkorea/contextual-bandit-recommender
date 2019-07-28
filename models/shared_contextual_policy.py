@@ -1,4 +1,7 @@
 """
+The policies that share parameters across all actions.
+
+The current implementations accept both user and item context.
 """
 
 import sys
@@ -12,7 +15,7 @@ from torch.autograd import Variable
 from torch.nn.utils import clip_grad_norm_
 
 import logging
-logger = logging.getLogger(__name__ + "action_context_based_policy")
+logger = logging.getLogger(__name__ + "shared_contextual_policy")
 handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -20,21 +23,10 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 
-
 class SharedLinUCBPolicy(object):
-    """
-    action-context aware policy
+    """LinUCB policy that shares parameters across all actions.
 
-    unlike LinUCB (disjoint) LinUCB (hybrid) in [1],
-    all actions share all parameters.
-
-    expected to underperform in a high data regime.
-    expected to perform relatively well in a low data regime.
-
-    Just a baseline.
-
-    I did not like the idea of building a disjoint model
-    for each action.
+    Note this is different from the hybrid model in [1].
 
     [1]: https://arxiv.org/pdf/1003.0146.pdf
     """
@@ -52,8 +44,6 @@ class SharedLinUCBPolicy(object):
         self._A_inv = np.linalg.inv(self._A)
 
         self._b = np.zeros(self._d)
-
-        #self._theta = np.linalg.lstsq(self._A, self._b, rcond=None)[0]
         self._theta = np.linalg.inv(self._A).dot(self._b)
 
         self._alpha = 1 + np.sqrt(np.log(2/delta)/2)
@@ -68,32 +58,6 @@ class SharedLinUCBPolicy(object):
         self._batch_size = batch_size
 
     def choose_action(self, x_t):
-        """
-
-        solve X_a w_a + b_a = r_a
-
-        where
-        X_a in R^{n x d}
-        b_a in R^{n x 1}
-        D_a (n_j x d): design matrix for a_j
-        theta (d x 1)
-
-        solve D_a theta_a = c_a
-        theta_a = (D_a^TD_a + I_d)^{-1}
-        A_a = D_a^TD_a + I_d
-
-        I_d perturbation singular
-        X_a (d x d):
-
-        alpha: constant coefficient for ucb
-        at least 1 - delta probability
-        alpha = 1 + sqrt(ln(2/delta)/2)
-        copmute ucb
-
-        assumes alpha given
-
-        access to theta_a for all actions
-        """
         u_t, S_t = x_t
         # number of actions can change
         n_actions = S_t.shape[0]
@@ -113,21 +77,13 @@ class SharedLinUCBPolicy(object):
             ubc_t[j] = self._alpha * np.sqrt(k_ta)
             Q[j] = self._theta.dot(x_t) + ubc_t[j]
 
-        # todo: tiebreaking
         a_t = np.argmax(Q)
-
-        #if self._t % 10000 == 0:
-        #    logger.debug("Q est {}".format(Q))
-        #    logger.debug("ubc {} at {}".format(ubc_t[a_t], self._t))
 
         self._t += 1
 
         return a_t
 
     def update(self, a_t, x_t, r_t):
-        """
-        """
-
         u_t, S_t = x_t
 
         x_t = np.concatenate( (u_t, S_t[a_t, :], [1]) )
@@ -142,29 +98,33 @@ class SharedLinUCBPolicy(object):
             return
 
         if self._t % self._train_freq == 0:
-            # solve linear systems for one action
-            # using lstsq to handle over/under determined systems
-            #self._theta = np.linalg.lstsq(self._A, self._b, rcond=None)[0]
             self._A_inv = np.linalg.inv(self._A)
             self._theta = self._A_inv.dot(self._b)
 
 
 class SharedLinearGaussianThompsonSamplingPolicy(object):
-    """
-
-    action-context aware policy
-
-    A variant of Thompson Sampling that is based on
-
-    Bayesian Linear Regression
-
-    with Inverse Gamma and Gaussian prior
+    """Linear Gaussian Thompson Sampling policy that shares parameters
+    across all actions.
 
 
-    unlike the one in context_based_policy.py
-    all parameters are shared across actions
+    A Bayesian approach for inferring the true reward distribution model.
 
-    the performance expectation is similar as SharedLinUCBPolicy.
+    Implements a Bayesian linear regression with a conjugate prior [1].
+
+    Model: Gaussian: R_t = W*x_t + eps, eps ~ N(0, sigma^2 I)
+    Model Parameters: mu, cov
+    Prior on the parameters
+    p(w, sigma^2) = p(w|sigma^2) * p(sigma^2)
+
+    1. p(sigma^2) ~ Inverse Gamma(a_0, b_0)
+    2. p(w|sigma^2) ~ N(mu_0, sigma^2 * precision_0^-1)
+
+    For computational reasons,
+
+    1. model updates are done periodically.
+    2. for large sample cases, batch_mode is enbabled.
+
+    [1]: https://en.wikipedia.org/wiki/Bayesian_linear_regression#Conjugate_prior_distribution
 
     """
 
@@ -176,15 +136,7 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
                  posterior_update_freq=50,
                  batch_mode=True,
                  batch_size=256,
-                 lr=0.01
-    ):
-        """
-        a_0; location for IG t=0
-        b_0; scale for IG t=0
-
-
-        """
-
+                 lr=0.01):
         self._t = 1
         self._update_freq = posterior_update_freq
         self._train_starts_at = train_starts_at
@@ -197,7 +149,6 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
         self._b_0 = eta_prior
         self._a = eta_prior
         self._b = eta_prior
-
 
         # conditional Gaussian prior
         self._sigma_sq_0 = invgamma.rvs(eta_prior, eta_prior)
@@ -222,15 +173,6 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
 
 
     def _update_posterior(self, X_t, r_t_list):
-        """
-        p(w, sigma^2) = p(mu|cov)p(a, b)
-
-        where p(sigma^2) ~ Inverse Gamma(a_0, b_0)
-              p(w|sigma) ~ N(mu_0, sigma^2 * lambda_0^-1)
-
-        does a full refit. online version could be implemented.
-
-        """
         cov_t = np.linalg.inv(np.dot(X_t.T, X_t) + self._precision_0)
         mu_t = np.dot(cov_t, np.dot(X_t.T, r_t_list))
         a_t = self._a_0 + self._t/2
@@ -255,15 +197,6 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
 
 
     def _sample_posterior_predictive(self, x_t, n_samples=1):
-        """
-
-        estimate
-
-        p(R_new | X, R_old)
-        = int p(R_new | params )p(params| X, R_old) d theta
-
-        """
-
         # 1. p(sigma^2)
         sigma_sq_t = invgamma.rvs(self._a, scale=self._b)
 
@@ -279,18 +212,15 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
                     np.zeros(self._d), np.eye(self._d)
             )
 
-
         # modify context
         u_t, S_t = x_t
         n_actions = S_t.shape[0]
-
 
         x_ta = [
                 np.concatenate( (u_t, S_t[j, :], [1]) )
                 for j in range(n_actions)
         ]
         assert len(x_ta[0]) == self._d
-
 
         # 2. p(r_new | params)
         mean_t_predictive = [
@@ -312,7 +242,6 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
 
     def choose_action(self, x_t):
         # p(R_new | params_t)
-
         r_t_estimates = self._sample_posterior_predictive(x_t)
         act = np.argmax(r_t_estimates)
 
@@ -322,12 +251,6 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
 
 
     def update(self, a_t, x_t, r_t):
-        """
-        @todo: unify c_t vs. x_t
-
-        with respect to a_t
-        """
-
         u_t, S_t = x_t
         x_t = np.concatenate( (u_t, S_t[a_t, :], [1]) )
 
@@ -367,11 +290,15 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
             self._update_posterior(X_t, r_t_list)
 
 
-class FeedForwardNetwork(nn.Module):
-    """
-    a simple feedforward network
-    that estimates E[R_t | X_ta]
+class SharedFeedForwardNetwork(nn.Module):
+    """A fully connected neural network that shares parameters
+    across all actions.
 
+    Basically, solves a regression task on E[r_t | x_ta].
+
+    For Robustness, adding a gradient noise is possible as per [1].
+
+    [1]: https://arxiv.org/abs/1511.06807
     """
     def __init__(self, input_dim,
                        hidden_dim,
@@ -400,7 +327,6 @@ class FeedForwardNetwork(nn.Module):
             self.model.add_module("relu{}".format(i+1), nn.ReLU())
         self.model.add_module("fc{}".format(n_layer), nn.Linear(hidden_dim, output_dim))
 
-
         self.set_gpu = set_gpu
 
         if set_gpu and torch.cuda.is_available():
@@ -415,7 +341,7 @@ class FeedForwardNetwork(nn.Module):
         for m in self.modules():
             if isinstance(m, nn.Linear):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out')
-                #nn.init.constant_(m.bias, 0)
+                nn.init.constant_(m.bias, 0)
 
         self.opt = torch.optim.SGD(self.model.parameters(),
                                    lr=learning_rate,
@@ -447,14 +373,6 @@ class FeedForwardNetwork(nn.Module):
 
 
     def train(self, epoch, train_loader):
-        """TODO: Docstring for train.
-        Parameters
-        ----------
-        arg1 : TODO
-        Returns
-        -------
-        TODO
-        """
         self.model.train()
         total_loss = 0.0
 
@@ -486,7 +404,6 @@ class FeedForwardNetwork(nn.Module):
             if self._grad_clip:
                 clip_grad_norm_(self.model.parameters(), self._grad_clip_value, self._grad_clip_norm)
 
-
             if self.debug and batch_idx % 10 == 0:
                 for layer in self.model.modules():
                     if np.random.rand() > 0.95:
@@ -506,7 +423,6 @@ class FeedForwardNetwork(nn.Module):
             if np.isnan(loss.data.item()):
                 raise Exception("gradient exploded or vanished: try clipping gradient")
 
-
             if batch_idx % 5 == 0:
                 sys.stdout.flush()
                 sys.stdout.write('\rTrain Epoch: {:<2} [{:<5}/{:<5} ({:<2.0f}%)]\tLoss: {:.6f}'.format(
@@ -521,41 +437,30 @@ class FeedForwardNetwork(nn.Module):
 
 
     def _compute_grad_noise(self, grad):
-        """TODO: Docstring for function.
-        Parameters
-        ----------
-        arg1 : TODO
-        Returns
-        -------
-        TODO
-        """
-
         std = np.sqrt(self._eta / (1 + self._step)**self._gamma)
         return Variable(grad.data.new(grad.size()).normal_(0, std=std))
 
 
     def add_grad_noise(self, module, grad_i_t, grad_o):
-        """TODO: Docstring for add_noise.
-        Parameters
-        ----------
-        arg1 : TODO
-        Returns
-        -------
-        TODO
-        """
         _, _, grad_i = grad_i_t[0], grad_i_t[1], grad_i_t[2]
         noise = self._compute_grad_noise(grad_i)
         return (grad_i_t[0], grad_i_t[1], grad_i + noise)
 
 
 class NeuralPolicy(object):
+    """Policy that access a neural network reward estimator.
+
+    For exploration, the epsilon greedy logic is set.
+
+    """
     def __init__(self,
                  model,
                  dataloader,
                  train_starts_at=500,
                  train_freq=50,
-                 set_gpu=False
-        ):
+                 set_gpu=False,
+                 eps=0.1,
+                 eps_anneal_factor=1e-5):
         self._model = model
         self._dataloader = dataloader
         self._train_starts_at = train_starts_at
@@ -563,6 +468,9 @@ class NeuralPolicy(object):
         self._t = 0
         self._t_update = 0
         self._set_gpu = set_gpu
+
+        self._eps = eps
+        self._eps_anneal_factor = eps_anneal_factor
 
 
     def choose_action(self, x_t):
@@ -586,25 +494,16 @@ class NeuralPolicy(object):
         else:
             r_preds = r_preds.data.numpy().squeeze()
 
-        #r_preds = np.zeros(n_actions)
-        #for j in range(n_actions):
-        #    x_ta = np.concatenate( (u_t, S_t[j, :]) )
-        #    x_ta = torch.from_numpy(x_ta)
-        #    # type cast to match the default dtype of torch
-        #    x_ta = x_ta.float()
-        #    # predict
-        #    r_pred = self._model.predict(x_ta)
-        #    if self._set_gpu:
-        #        r_preds[j] = r_pred.data.cpu().numpy()[0]
-        #    else:
-        #        r_preds[j] = r_pred.data.numpy()[0]
+        # eps-greedy
+        u = np.random.uniform()
+        if u > self._eps:
+            a_t = np.argmax(r_preds)
+        else:
+            # choose random
+            a_t = np.random.choice(np.arange(self._n_actions))
 
-
-        # @todo: consider proper tie-breaking
-        # encourage exploration
-        np.random.seed(0)
-        noise = np.random.uniform(0, 0.25, size=len(r_preds))
-        a_t = np.argmax(r_preds + noise)
+        # anneal eps
+        self._eps *= (1 - self._eps_anneal_factor)**self._t
 
         return a_t
 
@@ -628,5 +527,3 @@ class NeuralPolicy(object):
             self._t_update += 1
             # train one epoch (full data)?
             self._model.train(self._t_update, self._dataloader)
-
-

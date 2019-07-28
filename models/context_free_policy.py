@@ -1,11 +1,17 @@
 """
+The policies that ignores context.
+
+The current implementations only work for fixed action space problems.
+
+@todo: adapt for changing action space problems. Basically passing the set of
+actions.
 """
 import numpy as np
 
-# context-free
 
-# no exploration
 class RandomPolicy(object):
+    """Uniform random policy.
+    """
     def __init__(self, n_actions):
         self._n_actions = n_actions
 
@@ -19,8 +25,10 @@ class RandomPolicy(object):
     def update(self, a_t, c_t, r_t):
         pass
 
-# no exploration
+
 class SampleMeanPolicy(object):
+    """Sample mean estimator for action values.
+    """
     def __init__(self, n_actions, lr=0.1):
         self._Q = np.zeros(n_actions)
         self._act_count = np.zeros(n_actions)
@@ -34,18 +42,20 @@ class SampleMeanPolicy(object):
     def update(self, a_t, c_t, r_t):
         # ignores context
         n_j = self._act_count[a_t]
-        self._Q[a_t] = 1/n_j * (self._Q[a_t] *(n_j - 1) + r_t)
+        self._Q[a_t] = 1/n_j * (self._Q[a_t] * (n_j - 1) + r_t)
 
 
 # exploration (with annealing)
 class EpsilonGreedyPolicy(object):
+    """Annealing epsilion greey policy.
+    """
     def __init__(self, n_actions, lr=0.1, epsilon=0.5, eps_anneal_factor=0.01):
         self._n_actions = n_actions
         self._Q = np.zeros(n_actions)
         self._act_count = np.zeros(n_actions)
         self._lr = lr
-        self._eps = epsilon
         self._t = 0
+        self._eps = epsilon
         self._eps_anneal_factor = eps_anneal_factor
 
     def choose_action(self, c_t):
@@ -65,15 +75,16 @@ class EpsilonGreedyPolicy(object):
 
     def update(self, a_t, c_t, r_t):
         # ignores context
-        n_j = self._act_count[a_t]
         # standard approach
+        #n_j = self._act_count[a_t]
         # self._Q[a_t] = 1/n_j * (self._Q[a_t] *(n_j - 1) + r_t)
         # robust for non-stationary
         self._Q[a_t] = self._Q[a_t] + self._lr * (r_t - self._Q[a_t])
 
 
-# exploration with ucb
 class UCBPolicy(object):
+    """Upper Confidence Bound policy.
+    """
     def __init__(self, n_actions, lr=0.1):
         self._n_actions = n_actions
         self._Q = np.zeros(n_actions)
@@ -91,7 +102,6 @@ class UCBPolicy(object):
             else:
                 ubc_t[a_j] = np.sqrt(2*np.log(self._t)/n_j)
 
-
         #if self._t % 10000 == 0:
         #    print("ubc {} at {}".format(ubc_t, self._t))
         #    print("act count", self._act_count)
@@ -102,8 +112,8 @@ class UCBPolicy(object):
 
     def update(self, a_t, c_t, r_t):
         # ignores context
-        n_j = self._act_count[a_t]
         # standard approach
+        #n_j = self._act_count[a_t]
         # self._Q[a_t] = 1/n_j * (self._Q[a_t] *(n_j - 1) + r_t)
         # robust for non-stationary
         self._Q[a_t] = self._Q[a_t] + self._lr * (r_t - self._Q[a_t])
