@@ -39,7 +39,7 @@ from sqlalchemy.orm import (
         sessionmaker,
 )
 from sqlalchemy.ext.declarative import declarative_base
-from sample_data import read_user_event, parse_uv_event, extract_data
+from datautils.news.sample_data import read_user_event, parse_uv_event, extract_data
 
 Base = declarative_base()
 
