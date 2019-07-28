@@ -72,5 +72,6 @@ def sample_mushroom(X, y,
 
     r_acts = np.hstack((r_no_eats[:, None], r_eats[:, None]))
 
+
     return contexts, r_acts, opt_acts_hidden, is_poisonous_hidden
 

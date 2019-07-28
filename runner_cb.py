@@ -1,14 +1,15 @@
 import numpy as np
 import pandas as pd
 
+
 from datasets.synthetic.sample_data import sample_synthetic
 from datasets.mushroom.sample_data import sample_mushroom
 from datasets.preprocessing import load_data
 
 from models.context_free_policy import (
         EpsilonGreedyPolicy,
-        RandomPolicy,
-        SampleMeanPolicy,
+        #RandomPolicy,
+        #SampleMeanPolicy,
         UCBPolicy,
 )
 from models.context_based_policy import (
@@ -51,10 +52,10 @@ def run_context_bandit(args):
         samples = sample_mushroom(X,
                                   y,
                                   n_rounds,
-                                  r_eat_good=5.0,
-                                  r_eat_bad_lucky=5.0,
-                                  r_eat_bad_unlucky=-35.0,
-                                  r_eat_bad_lucky_prob=0.5,
+                                  r_eat_good=10.0,
+                                  r_eat_bad_lucky=10.0,
+                                  r_eat_bad_unlucky=-50.0,
+                                  r_eat_bad_lucky_prob=0.7,
                                   r_no_eat=0.0
                                   )
 
@@ -70,26 +71,31 @@ def run_context_bandit(args):
 
     # define a solver
     #rp = RandomPolicy(n_actions)
-    smp = SampleMeanPolicy(n_actions)
-    egp = EpsilonGreedyPolicy(n_actions, lr=0.1, epsilon=0.1)
-    ucbp = UCBPolicy(n_actions=n_actions, lr=0.01)
+    #smp = SampleMeanPolicy(n_actions)
+    egp = EpsilonGreedyPolicy(n_actions, lr=0.001,
+                    epsilon=0.5, eps_anneal_factor=0.001)
+    ucbp = UCBPolicy(n_actions=n_actions, lr=0.001)
     linucbp = LinUCBPolicy(
             n_actions=n_actions,
             context_dim=context_dim,
-            delta=0.25,
-            train_starts_at=500,
-            train_freq=50)
+            delta=0.001,
+            train_starts_at=100,
+            train_freq=5
+            )
     lgtsp = LinearGaussianThompsonSamplingPolicy(
                 n_actions=n_actions,
                 context_dim=context_dim,
                 eta_prior=6.0,
                 lambda_prior=0.25,
-                train_starts_at=500,
-                posterior_update_freq=50
+                train_starts_at=100,
+                posterior_update_freq=5,
+                lr = 0.05
             )
 
-    policies = [smp, egp, ucbp, linucbp, lgtsp]
-    policy_names = ["smp", "egp", "ucbp", "linucbp", "lgtsp"]
+
+
+    policies = [egp, ucbp, linucbp, lgtsp]
+    policy_names = ["egp", "ucbp", "linucbp", "lgtsp"]
 
 
     # simulate a bandit over n_rounds steps

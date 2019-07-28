@@ -40,7 +40,6 @@ def parse_uv_event(user_visit):
             for user_feature in tokens[4:10]:
                 feature_id, feature_val = user_feature.split(":")
                 uv_event["user"][int(feature_id)-1] = float(feature_val)
-
         else:
             raise Exception("unexpected marker: {}".format(user_marker))
 
