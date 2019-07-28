@@ -1,3 +1,8 @@
+"""
+Plotting util.
+Assumes experiment csv fils in the root.
+"""
+
 import os
 import argparse
 
@@ -9,6 +14,7 @@ import seaborn as sns
 
 root_dir = os.path.abspath(os.path.dirname(__file__))
 
+
 def arg_parser():
     TASK_LIST = ["mushroom", "synthetic", "news"]
 
@@ -17,7 +23,7 @@ def arg_parser():
     parser.add_argument("--n_trials", type=int, default=1, help="number of \
             independent trials for experiments")
 
-    parser.add_argument("--window", type=int, \
+    parser.add_argument("--window", type=int,
                         default=100, help="moving average window")
     return parser.parse_args()
 
@@ -26,7 +32,6 @@ def main():
     args = arg_parser()
     sns.set()
     sns.set_palette("husl")
-
 
     if args.task in ["news"]:
         plot_acb(args.task, args)
@@ -55,13 +60,6 @@ def compute_mean_std(paths, n_trials, window=-1):
             M_cr_mean += M_cr[i]
     M_cr_mean = M_cr_mean / n_trials
 
-    # change std -> upper_bound
-    # upper_bound
-    #M_cr_std = np.zeros( M_cr_mean.shape )
-    #for i in range(n_trials):
-    #    M_cr_std += (M_cr[i] - M_cr_mean)**2
-    # no bias correction
-    #M_cr_std = M_cr_std / n_trials
     M_cr_std = np.zeros( M_cr_mean.shape )
     M_cr_std_low = np.zeros( M_cr_mean.shape )
     for i in range(n_trials):
@@ -93,7 +91,6 @@ def plot_acb(task, args):
 
 def plot_cb(task, args):
     n_trials = args.n_trials
-    window = args.window
     paths = []
     for i in range(n_trials):
         p = os.path.join(root_dir, "{}.cumreg.{}.csv".format(task, i))
@@ -105,8 +102,6 @@ def plot_cb(task, args):
     for i in range(n_trials):
         p = os.path.join(root_dir, "{}.acts.{}.csv".format(task, i))
         paths.append(p)
-    #M_cr_mean, M_cr_std, columns = compute_mean_std(paths, n_trials)
-
     # @todo: fix this
     paths = [paths[0]]
     plot_acts(task, paths, columns)
@@ -122,10 +117,7 @@ def plot_cumreg(task_name, M_cr_mean, M_cr_std, columns):
     x = np.arange(M_cr_mean.shape[0])
     for j in range(M_cr_mean.shape[1]):
         y_mean = M_cr_mean[:, j]
-        #y_std = M_cr_std[:, j]
         ax.plot(x, y_mean + j * 0.01, label=columns[j], linewidth=1)
-        #ax.fill_between(x, np.maximum(0, y_mean - y_std), y_mean + y_std,
-        #                 alpha=0.3)
         ax.fill_between(x, np.maximum(0, low[:,j]), high[:,j], alpha=0.1)
 
     ax.legend(loc="upper left", fontsize=15)
@@ -164,11 +156,7 @@ def plot_cumrew(task_name, M_cr_mean, M_cr_std, columns):
     x = np.arange(M_cr_mean.shape[0])
     for j in range(M_cr_mean.shape[1]):
         y_mean = M_cr_mean[:, j]
-        #y_std = M_cr_std[:, j]
-
         ax.plot(x, y_mean, label=columns[j], linewidth=1)
-        #ax.fill_between(x, np.maximum(0, y_mean - y_std), y_mean + y_std,
-        #                 alpha=0.3)
         ax.fill_between(x, np.maximum(0, low[:, j]), high[:, j], alpha=0.1)
 
     ax.legend(loc="upper left", fontsize=15)
@@ -187,11 +175,7 @@ def plot_CTR(task_name, M_cr_mean, M_cr_std, columns, window):
     x = np.arange(M_cr_mean.shape[0])
     for j in range(M_cr_mean.shape[1]):
         y_mean = M_cr_mean[:, j]
-        #y_std = M_cr_std[:, j]
-
         ax.plot(x, y_mean, label=columns[j])
-        #ax.fill_between(x, np.maximum(0.0, y_mean - y_std), y_mean + y_std,
-        #                 alpha=0.3)
         ax.fill_between(x, np.maximum(0, low[:,j]), high[:,j], alpha=0.1)
 
     ax.legend(loc="upper left", fontsize=15)
