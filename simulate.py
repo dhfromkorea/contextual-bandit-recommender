@@ -40,6 +40,7 @@ def simulate_contextual_bandit(data, n_samples, policies):
 
         for x_t, r_acts, a_t_opt, _ in zip(*data):
             a_t = policy.choose_action(x_t)
+
             r_t = r_acts[a_t]
 
             policy.update(a_t, x_t, r_t)
@@ -47,6 +48,7 @@ def simulate_contextual_bandit(data, n_samples, policies):
             r_t_opt = r_acts[a_t_opt]
 
             regret_t = r_t_opt - r_t
+
 
             results[i]["log"][:, t] = [a_t, a_t_opt, r_t, regret_t]
 
@@ -95,8 +97,8 @@ def simulate_contextual_bandit_partial_label(data_generator, n_samples, policies
 
             t += 1
 
-            print("")
             if t_1 > n_samples:
+                print("")
                 print("{:.2f}% data useful".format(t_1/t * 100))
                 break
 
