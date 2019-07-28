@@ -6,7 +6,7 @@ import numpy as np
 
 from context import LinUCBPolicy
 from context import LinearGaussianThompsonSamplingPolicy
-from context import simulate_contextual_bandit
+from context import simulate_cb
 from context import sample_synthetic, sample_mushroom
 
 
@@ -67,7 +67,7 @@ def test_linucb_policy(n_samples, n_actions, context_dim, dataset):
 
     policies = [linucbp]
 
-    results = simulate_contextual_bandit(dataset, n_samples, policies)
+    results = simulate_cb(dataset, n_samples, policies)
 
     # must avoid getting stuck at no eating
     # not sure about synthetic
@@ -93,7 +93,7 @@ def test_linear_gaussian_thompson_sampling_policy(
 
     policies = [lgtsp]
 
-    results = simulate_contextual_bandit(dataset, n_samples, policies)
+    results = simulate_cb(dataset, n_samples, policies)
 
     # must avoid getting stuck at no eating
     # not sure about synthetic

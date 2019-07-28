@@ -1,36 +1,83 @@
+"""
+Runner for portially observable reward CB problems.
 
+Currently only supports shared contetxtual policies.
+"""
+import os
 import numpy as np
 import pandas as pd
 import torch
 
 
-from datasets.news.sample_data import sample_user_event
-from datasets.bandit_data import BanditData
+from datautils.news.sample_data import sample_user_event
+from datautils.bandit_data import BanditData
 
 from models.context_free_policy import (
         RandomPolicy
 )
-from models.action_context_based_policy import (
+from models.shared_contextual_policy import (
         SharedLinUCBPolicy,
         SharedLinearGaussianThompsonSamplingPolicy,
         FeedForwardNetwork,
-        NeuralPolicy,
-)
-from simulate import (
-        simulate_contextual_bandit_partial_label,
+        SharedNeuralPolicy,
 )
 
 
-def run_action_context_bandit(args):
-    """
-    runner for problems that have action context
+root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+results_dir = os.path.abspath(os.path.join(root_dir, "results"))
 
-    action context = features for each valid action
-    """
 
+
+def simulate_por_cb(data_generator, n_samples, policies):
+    """Simulator for POR CB problems.
+
+    Runs for n_samples steps.
+    """
+    results = [None] * len(policies)
+    for i, policy in enumerate(policies):
+        results[i] = {}
+        results[i]["reward"] = []
+
+        t = 0
+        t_1 = 0
+        for uv in data_generator:
+            # s_t = a list of article features
+            u_t, S_t, r_acts, act_hidden = uv
+
+            x_t = (u_t, S_t)
+            a_t = policy.choose_action(x_t)
+            if a_t == act_hidden:
+                assert act_hidden == r_acts[0]
+                # useful
+                r_t = r_acts[1]
+                policy.update(a_t, x_t, r_t)
+                results[i]["reward"].append(r_t)
+                t_1 += 1
+            else:
+                # not useful
+                # for off-policy learning
+                pass
+
+            t += 1
+
+            if t_1 > n_samples:
+                print("")
+                print("{:.2f}% data useful".format(t_1/t * 100))
+                break
+
+        results[i]["policy"] = policy
+        rewards = results[i]["reward"]
+        results[i]["cum_reward"] = np.cumsum(rewards)
+        results[i]["CTR"] = np.array(rewards)
+
+    return results
+
+
+def run_por_cb(args):
+    """Run portially observable reward problem.
+    """
     n_rounds = args.n_rounds
     uv_generator = sample_user_event()
-
 
     n_actions = 20
     context_dim = 6 + 6
@@ -52,7 +99,7 @@ def run_action_context_bandit(args):
                 posterior_update_freq=args.train_freq
     )
 
-    # prepare nueral policy
+    # prepore nueral policy
 
     np.random.seed(0)
     torch.manual_seed(0)
@@ -88,26 +135,19 @@ def run_action_context_bandit(args):
     bd = BanditData(batch_size, epoch_len=16)
     # 16 x 64
 
-    neuralp = NeuralPolicy(ffn, bd, train_starts_at=args.train_starts_at,
+    neuralp = SharedNeuralPolicy(ffn, bd, train_starts_at=args.train_starts_at,
             train_freq=args.train_freq, set_gpu=set_gpu)
 
     policies = [rp, linucbp, lgtsp, neuralp]
     policy_names = ["rp", "linucbp", "lgtsp", "neuralp"]
-    #policies = [neuralp]
-    #policy_names = ["neuralp"]
 
-    import time
-    start_t = time.time()
-    results = simulate_contextual_bandit_partial_label(uv_generator, n_rounds, policies)
-    print("took {}s / 1 trial with {}".format(time.time() - start_t,
-        policy_names[0]))
+    results = simulate_por_cb(uv_generator, n_rounds, policies)
 
     return results, policies, policy_names
 
 
-def write_results_acb(results, policies, policy_names, trial_idx, args):
-    """
-    write results to csv for action context problems.
+def write_results_por_cb(results, policies, policy_names, trial_idx, args):
+    """Write results to csv for pab_cb.
     """
     # log results
     cumrew_data = None
@@ -118,10 +158,8 @@ def write_results_acb(results, policies, policy_names, trial_idx, args):
         else:
             cumrew_data = np.hstack( (cumrew_data, cr) )
 
-
     df = pd.DataFrame(cumrew_data, columns=policy_names)
-    df.to_csv("{}.cumrew.{}.csv".format(args.task, trial_idx), header=True, index=False)
-
+    df.to_csv("{}/{}.cumrew.{}.csv".format(results_dir, args.task, trial_idx), header=True, index=False)
 
     CTR_data = None
     for i in range(len(policies)):
@@ -133,6 +171,4 @@ def write_results_acb(results, policies, policy_names, trial_idx, args):
 
 
     df = pd.DataFrame(CTR_data, columns=policy_names)
-    df.to_csv("{}.CTR.{}.csv".format(args.task, trial_idx), header=True, index=False)
-
-
+    df.to_csv("{}/{}.CTR.{}.csv".format(results_dir, args.task, trial_idx), header=True, index=False)

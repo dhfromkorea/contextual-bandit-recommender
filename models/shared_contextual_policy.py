@@ -290,7 +290,7 @@ class SharedLinearGaussianThompsonSamplingPolicy(object):
             self._update_posterior(X_t, r_t_list)
 
 
-class SharedFeedForwardNetwork(nn.Module):
+class FeedForwardNetwork(nn.Module):
     """A fully connected neural network that shares parameters
     across all actions.
 
@@ -377,7 +377,7 @@ class SharedFeedForwardNetwork(nn.Module):
         total_loss = 0.0
 
         # sample batches
-        batches = train_loader.sample()
+        batches = train_loader.sample_batches()
 
         for batch_idx, (data, target) in enumerate(batches):
 
@@ -447,7 +447,7 @@ class SharedFeedForwardNetwork(nn.Module):
         return (grad_i_t[0], grad_i_t[1], grad_i + noise)
 
 
-class NeuralPolicy(object):
+class SharedNeuralPolicy(object):
     """Policy that access a neural network reward estimator.
 
     For exploration, the epsilon greedy logic is set.
@@ -500,7 +500,7 @@ class NeuralPolicy(object):
             a_t = np.argmax(r_preds)
         else:
             # choose random
-            a_t = np.random.choice(np.arange(self._n_actions))
+            a_t = np.random.choice(np.arange(n_actions))
 
         # anneal eps
         self._eps *= (1 - self._eps_anneal_factor)**self._t

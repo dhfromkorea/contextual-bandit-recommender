@@ -2,12 +2,12 @@
 APP_NAME="cb-recommender"
 HOST="localhost"
 TEST_PATH="./tests"
-MUSHROOM_DEST="./datasets/mushroom/mushroom.csv"
+MUSHROOM_DEST="./datautils/mushroom/mushroom.csv"
 MUSHROOM_SOURCE="https://archive.ics.uci.edu/ml/machine-learning-databases/mushroom/agaricus-lepiota.data"
 WINDOW=512
 
-N_TRIALS=3
-N_ROUNDS=10000
+N_TRIALS=1
+N_ROUNDS=600
 
 init:
 	pip install -r requirements.txt

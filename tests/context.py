@@ -2,11 +2,18 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from datasets.synthetic.sample_data import sample_synthetic
-from datasets.mushroom.sample_data import sample_mushroom
+from datautils.synthetic.sample_data import sample_synthetic
+from datautils.mushroom.sample_data import sample_mushroom
 
-from models.context_free_policy import EpsilonGreedyPolicy, RandomPolicy, SampleMeanPolicy, UCBPolicy
-from models.context_based_policy import LinUCBPolicy
-from models.context_based_policy import LinearGaussianThompsonSamplingPolicy
-from simulate import simulate_contextual_bandit
-
+from models.context_free_policy import (
+        EpsilonGreedyPolicy,
+        RandomPolicy,
+        SampleMeanPolicy,
+        UCBPolicy
+        )
+from models.disjoint_contextual_policy import (
+        LinUCBPolicy,
+        LinearGaussianThompsonSamplingPolicy,
+        )
+from environments.runner_cb import simulate_cb
+#from environments.runner_por_cb import simulate_por_cb

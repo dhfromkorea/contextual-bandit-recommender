@@ -5,7 +5,7 @@ import numpy as np
 
 
 from context import EpsilonGreedyPolicy, UCBPolicy
-from context import simulate_contextual_bandit
+from context import simulate_cb
 from context import sample_synthetic, sample_mushroom
 
 def get_mushroom_data():
@@ -59,7 +59,7 @@ def test_epsilon_greedy_policy(n_samples, n_actions, context_dim, dataset):
     egp = EpsilonGreedyPolicy(n_actions=n_actions, lr=0.1, epsilon=0.1)
     policies = [egp]
 
-    results = simulate_contextual_bandit(dataset, n_samples, policies)
+    results = simulate_cb(dataset, n_samples, policies)
 
     # no operational error
     assert results[0]["simple_regret"] > -1.0
@@ -74,7 +74,7 @@ def test_ucb_policy(n_samples, n_actions, context_dim, dataset):
     ucbp = UCBPolicy(n_actions=n_actions, lr=0.01)
     policies = [ucbp]
 
-    results = simulate_contextual_bandit(dataset, n_samples, policies)
+    results = simulate_cb(dataset, n_samples, policies)
 
     # no operational error
     assert results[0]["simple_regret"] > -1.0
