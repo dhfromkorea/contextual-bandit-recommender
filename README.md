@@ -55,9 +55,6 @@ To plot the results, run `make plot`.
 ### Demos
 Check out the [blogpost](http://www.dhfromkorea.com/news-recommendation-with-contextual-bandit/) for the details about the datasets
 
-#### Synthetic Dataset
-Available built-in.
-
 
 #### Mushroom Dataset
 A public UCI machine learnign [dataset](https://archive.ics.uci.edu/ml/datasets/mushroom). 
@@ -109,10 +106,27 @@ policy_names = ["egp", "ucbp", "linucbp", "lgtsp"]
 # simulate a bandit over n_rounds steps
 results = simulate_cb(samples, n_rounds, policies)
 ```
-![Mushroom Cum Reg](http://www.dhfromkorea.com/images/cb/synthetic.cumreg.png)
+![Mushroom Cum Reg](http://www.dhfromkorea.com/images/cb/mushroom.cumreg.png)
+
+![Mushroom Action Distribution](http://www.dhfromkorea.com/images/cb/mushroom.acts.png)
+
+
+#### Synthetic Dataset
+Available built-in.
+
+![Synthetic Cum Reg](http://www.dhfromkorea.com/images/cb/synthetic.cumreg.png)
+
+![Synthetic Action Distribution](http://www.dhfromkorea.com/images/cb/synthetic.acts.png)
+
+
+
 #### Yahoo Front Page Click Log Dataset
 
 You need to make a request to gain access. For necessary data preprocessing, check out `datautils.news.db_tools`.
+
+![News Cum Reg](http://www.dhfromkorea.com/images/cb/news.cumrew.png)
+
+![News Action Distribution](http://www.dhfromkorea.com/images/cb/news.CTR.png)
 
 
 ### Running the tests
