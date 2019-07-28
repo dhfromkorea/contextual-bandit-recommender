@@ -1,15 +1,14 @@
 """
+Main script for running experiments.
 """
 import time
 import sys
 import logging
-from subprocess import Popen
 import argparse
 
-import torch
 
-from runner_cb import run_context_bandit, write_results_cb
-from runner_acb import run_action_context_bandit, write_results_acb
+from environments.runner_cb import run_cb, write_results_cb
+from environments.runner_por_cb import run_por_cb, write_results_por_cb
 
 
 logger = logging.getLogger(__name__)
@@ -46,7 +45,7 @@ def arg_parser():
     # neural network stuff
     parser.add_argument('--batch_size', type=int, default=64, help='input batch size')
     #parser.add_argument('--n_rounds', type=int, default=1000, help='number of epochs')
-    parser.add_argument('--lr', type=float, default=0.01, \
+    parser.add_argument('--lr', type=float, default=0.01,
                         help='learning rate, default=0.01')
     parser.add_argument('--grad_noise', action='store_true', help='add gradient noise')
     parser.add_argument('--eta', type=float, default=0.01, help='eta')
@@ -68,9 +67,6 @@ if __name__ == "__main__":
     for arg in vars(args):
         logging.info("{} - {}".format(arg, getattr(args, arg)) )
 
-    if torch.cuda.is_available() and not args.cuda:
-        logging.info("WARNING: You have a CUDA device, so you should probably run with --cuda")
-
     logger.info("task: running {} trials with {} rounds".format(args.task, \
                 args.n_trials, args.n_rounds))
 
@@ -78,10 +74,10 @@ if __name__ == "__main__":
         logger.info("{}th trial started".format(trial_idx))
         start_t = time.time()
         if args.is_acp:
-            results, policies, policy_names = run_action_context_bandit(args)
-            write_results_acb(results, policies, policy_names, trial_idx, args)
+            results, policies, policy_names = run_por_cb(args)
+            write_results_por_cb(results, policies, policy_names, trial_idx, args)
         else:
-            results, policies, policy_names = run_context_bandit(args)
+            results, policies, policy_names = run_cb(args)
             write_results_cb(results, policies, policy_names, trial_idx, args)
         logger.info("{}th trial ended after {:.2f}s".format(trial_idx,
             time.time() - start_t))

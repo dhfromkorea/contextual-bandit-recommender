@@ -1,11 +1,3 @@
-"""
-sample mushroom problem
-according to:
-
-https://arxiv.org/pdf/1802.09127.pdf
-
-"""
-
 import numpy as np
 
 
@@ -14,7 +6,7 @@ def sample_synthetic(n_samples, n_actions=5, context_dim=10, sigma=1.0):
     W ~ samples hidden random Matrix of n_actions x context_dim
     x_t ~ samples contexts uniformly from {-5, -4, ..., 4, 5}
     r_t ~ samples rewards from an isotropic multivariate normal
-          r_t ~ N(W x_t, \sigma^2 I)
+          r_t ~ N(W x_t, sigma^2 I)
 
     assumes no interaction between actions.
 
@@ -46,7 +38,5 @@ def sample_synthetic(n_samples, n_actions=5, context_dim=10, sigma=1.0):
         mean_list_hidden.append(mean)
 
     return x_t_list, r_acts_list, opt_act_list_hidden, mean_list_hidden
-
-
 
 

@@ -1,10 +1,27 @@
 """
+The policies that use user contexts.
+
+The current implementations build disjoint models for each action.
+
+The current implementations do not accept item (action) contexts.
+
+@todo: combine this with action_context_policies.
+       1. disjoint, 2. shared.
 """
 import numpy as np
 from scipy.stats import invgamma
 
 
 class LinUCBPolicy(object):
+    """
+    Implementation of Li, et al. [1]
+
+    Disjoint model for each action.
+
+    For computational reasons, model updates are done periodically.
+
+    [1]: http://rob.schapire.net/papers/www10.pdf
+    """
     def __init__(self, n_actions, context_dim, delta=0.2,
                  train_starts_at=500, train_freq=50):
         self._n_actions = n_actions
@@ -28,7 +45,6 @@ class LinUCBPolicy(object):
         ]
 
         self._theta = [
-                #np.linalg.lstsq(self._A[j], self._b[j], rcond=None)[0]
                 self._A_inv[j].dot(self._b[j])
                 for j in range(self._n_actions)
         ]
@@ -82,10 +98,6 @@ class LinUCBPolicy(object):
         # todo: tiebreaking
         a_t = np.argmax(Q)
 
-        #if self._t % 10000 == 0:
-        #    print("Q est {}".format(Q))
-        #    print("ubc {} at {}".format(ubc_t[a_t], self._t))
-
         self._t += 1
 
         return a_t
@@ -106,40 +118,31 @@ class LinUCBPolicy(object):
         if self._t % self._train_freq == 0:
             # solve linear systems for one action
             # using lstsq to handle over/under determined systems
-            #self._theta[a_t] = np.linalg.lstsq(self._A[a_t], self._b[a_t], rcond=None)[0]
             self._theta[a_t] = self._A_inv[a_t].dot(self._b[a_t])
 
 
 class LinearGaussianThompsonSamplingPolicy(object):
     """
+    Linear Gaussian Thompson Sampling policy.
 
-    a variant of Thompson Sampling
-    that computes an exact posterior
-    for a linear gaussian model
-    with corresponding conjugate priors.
+    A Bayesian approach for inferring the true reward distribution model.
 
-    Model: Gaussian Likelihood
-           R_t = W*x_t + eps
-           # eps ~ N(0, sigma^2 I)
+    Implements a Bayesian linear regression with a conjugate prior [1].
 
+    Model: Gaussian: R_t = W*x_t + eps, eps ~ N(0, sigma^2 I)
     Model Parameters: mu, cov
-
     Prior on the parameters
-    p(w, sigma^2) =
+    p(w, sigma^2) = p(w|sigma^2) * p(sigma^2)
 
-    p(sigma^2) ~ Inverse Gamma(a_0, b_0)
-    * p(w|sigma^2) ~ N(mu_0, sigma^2 * precision_0^-1)
+    1. p(sigma^2) ~ Inverse Gamma(a_0, b_0)
+    2. p(w|sigma^2) ~ N(mu_0, sigma^2 * precision_0^-1)
 
-    The postestior update for this prior-likelihood combination
-    can be done exactly in a closed form.
-    i.e. Bayesian Linear Regression
+    For computational reasons,
 
-    we maintain for each action j
+    1. model updates are done periodically.
+    2. for large sample cases, batch_mode is enbabled.
 
-    mu_t^j, cov_t^j, sigma_sq_t^j
-
-    posterior updates can be done periodically (update_freq)
-    or sequentially (not implemented)
+    [1]: https://en.wikipedia.org/wiki/Bayesian_linear_regression#Conjugate_prior_distribution
 
     """
 
@@ -152,14 +155,7 @@ class LinearGaussianThompsonSamplingPolicy(object):
                  posterior_update_freq=50,
                  batch_mode=True,
                  batch_size=512,
-                 lr=0.1
-        ):
-        """
-        a_0; location for IG t=0
-        b_0; scale for IG t=0
-
-        """
-
+                 lr=0.1):
         self._t = 1
         self._update_freq = posterior_update_freq
         self._train_starts_at = train_starts_at
@@ -203,15 +199,7 @@ class LinearGaussianThompsonSamplingPolicy(object):
         self._lr = lr
 
 
-
     def _update_posterior(self, act_t, X_t, r_t_list):
-        """
-        p(w, sigma^2) = p(mu|cov)p(a, b)
-
-        where p(sigma^2) ~ Inverse Gamma(a_0, b_0)
-              p(w|sigma) ~ N(mu_0, sigma^2 * lambda_0^-1)
-
-        """
         cov_t = np.linalg.inv(np.dot(X_t.T, X_t) + self._precision_0)
         mu_t = np.dot(cov_t, np.dot(X_t.T, r_t_list))
         a_t = self._a_0 + self._t/2
@@ -225,7 +213,6 @@ class LinearGaussianThompsonSamplingPolicy(object):
         self._mu_list[act_t] = mu_t
         self._a_list[act_t] = a_t
         self._b_list[act_t] = b_t
-
 
         if self._batch_mode:
             # learn bit by bit
@@ -245,16 +232,6 @@ class LinearGaussianThompsonSamplingPolicy(object):
 
 
     def _sample_posterior_predictive(self, x_t, n_samples=1):
-        """
-
-        estimate
-
-        p(R_new | X, R_old)
-        = int p(R_new | params )p(params| X, R_old) d theta
-
-        """
-
-
         # p(sigma^2)
         sigma_sq_t_list = [
             invgamma.rvs(self._a_list[j], scale=self._b_list[j])
@@ -294,10 +271,6 @@ class LinearGaussianThompsonSamplingPolicy(object):
 
 
     def choose_action(self, x_t):
-        # p(R_new | params_t)
-
-        # add bias
-
         x_t = np.append(x_t, 1)
         r_t_estimates = self._sample_posterior_predictive(x_t)
         act = np.argmax(r_t_estimates)
@@ -308,11 +281,6 @@ class LinearGaussianThompsonSamplingPolicy(object):
 
 
     def update(self, a_t, x_t, r_t):
-        """
-        @todo: unify c_t vs. x_t
-
-        with respect to a_t
-        """
         self._set_train_data(a_t, x_t, r_t)
         # sample model parameters
         # p(w, sigma^2 | X_t, r_vec_t)
@@ -359,6 +327,4 @@ class LinearGaussianThompsonSamplingPolicy(object):
             X_t = X_t[batch_indices, :]
             r_t_list = r_t_list[batch_indices]
 
-
         self._train_data[a_t] = (X_t, r_t_list)
-

@@ -1,0 +1,108 @@
+Dataset: ydata-frontpage-todaymodule-clicks-v1_0
+
+Yahoo! Front Page Today Module User Click Log Dataset, version 1.0
+
+=======================================================================
+
+This dataset is provided as part of the Yahoo! Webscope program, to be
+used for approved non-commercial research purposes by recipients who 
+have signed a Data Sharing Agreement with Yahoo!.  This dataset is not
+to be redistributed. No personally identifying information is available
+in this dataset.  More information about the Yahoo! Webscope program is
+available at http://research.yahoo.com and also at ./WebscopeReadMe.txt.
+
+=======================================================================
+                          INTRODUCTION
+=======================================================================
+
+Online content recommendation represents an important example of
+*interactive* machine learning problems that require an efficient
+tradeoff between exploration and exploitation.  Such problems, often
+formulated as various types of multi-armed bandits, have received
+extensive research in the machine learning and statistics literature.
+Due to the inherent interactive nature, creating a benchmark dataset
+for reliable algorithm evaluation is not as straightforward as in
+other fields of machine learning (like classification, regression,
+ranking, recommendation, etc.) whose objectives are often to improve
+prediction accuracy.
+
+Our dataset contains a fraction of user click log for news articles
+displayed in the Featured Tab of the Today Module on Yahoo! Front Page
+(http://www.yahoo.com) during the first ten days in May 2009.  The
+articles were chosen uniformly at random from a hand-picked pool of
+high-quality articles, which allows one to use a recently developed
+method [2,3] to obtain an unbiased evaluation of an arbitrary bandit
+algorithm.  To the best of our knowledge, this is the first such
+benchmark available to the public.
+
+=======================================================================
+                          DATA DESCRIPTION
+=======================================================================
+
+Full description:
+
+The dataset contains 45,811,883 user visits to the Today Module.  For
+each visit, both the user and each of the candidate articles are
+associated with a feature vector of dimension 6 (including a constant
+feature), constructed by conjoint analysis with a bilinear model [1].
+
+This dataset contains 10 files, corresponding to the first 10 days in
+May 2009:
+
+    ydata-fp-td-clicks-v1_0.20090501.gz
+    ydata-fp-td-clicks-v1_0.20090502.gz
+    ...
+    ydata-fp-td-clicks-v1_0.20090510.gz
+
+Each line in the files corresponds to a separate user visit.  An example
+line is as follows:
+
+1241160900 109513 0 |user 2:0.000012 3:0.000000 4:0.000006 5:0.000023 6:0.999958 1:1.000000 |109498 2:0.306008 3:0.000450 4:0.077048 5:0.230439 6:0.386055 1:1.000000 |109509 2:0.306008 3:0.000450 4:0.077048 5:0.230439 6:0.386055 1:1.000000 [[...more article features omitted...]] |109453 2:0.421669 3:0.000011 4:0.010902 5:0.309585 6:0.257833 1:1.000000
+
+which contains the following fields delimited with spaces:
+
+    * timestamp: e.g., 1241160900
+    * displayed_article_id: e.g., 109513
+    * user_click (0 for no-click and 1 for click): e.g., 0
+    * strings "|user" and "|{article_id}" indicate the start of user
+      and article features
+    * features are encoded as "feature_id:feature_value" pairs, and
+      feature_id starts from 1.
+
+The pool of available articles for recommendation for each user visit
+is the set of articles that appear in that line of data.  All user IDs
+(specifically, bcookies) are replaced by a common string 'user' so that
+no user information can be identified from this data.
+
+Each user or article is associated with six features.  Feature #1 is
+the constant (always 1) feature, and features #2-6 correspond to the
+5 membership features constructed via conjoint analysis with a
+bilinear model [1].
+
+A unique property of this data set is that the displayed article is
+chosen uniformly at random from the candidate article pool.  Therefore,
+one can use an unbiased *offline* evaluation method [2,3] to compare
+bandit algorithms in a reliable way.  Performance of some of the
+popular bandit algorithms can be found [2].
+
+=======================================================================
+                              REFERENCES
+=======================================================================
+
+[1] Wei Chu, Seung-Taek Park, Todd Beaupre, Nitin Motgi, Amit Phadke,
+Seinjuti Chakraborty, Joe Zachariah: A case study of behavior-driven
+conjoint analysis on Yahoo!: Front page today module. Proceedings of
+the 15th ACM SIGKDD International Conference on Knowledge Discovery
+and Data Mining, 1097-1104, 2009.
+URL: http://doi.acm.org/10.1145/1557019.1557138
+
+[2] Lihong Li, Wei Chu, John Langford, Robert E. Schapire: A contextual-
+bandit approach to personalized news article recommendation. Proceedings
+of the 19th International Conference on World Wide Web, 661-670, 2010.
+URL: http://doi.acm.org/10.1145/1772690.1772758
+
+[3] Lihong Li, Wei Chu, John Langford, Xuanhui Wang: Unbiased offline
+evaluation of contextual-bandit-based news article recommendation
+algorithms. Proceedings of the Forth International Conference on Web
+Search and Web Data Mining, 297-306, 2011.
+URL: http://dx.doi.org/10.1145/1935826.1935878

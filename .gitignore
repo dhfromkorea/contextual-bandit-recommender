@@ -7,8 +7,10 @@
 *.txt
 commit_message.txt
 
+
 yahoo_news*
 archives/
+results/
 datasets/news/v1/
 datasets/news/v2/
 ideas.txt

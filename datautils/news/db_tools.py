@@ -1,5 +1,8 @@
 """
-Basic data model design:
+Colletion of util functions that
+reads and writes to sqlite db
+
+Data model design:
 
 User (one)---- (many) UserVisitEvent (one; displayed)-----------(many) Article
                          (one; considered for display)                 (many)
@@ -10,6 +13,17 @@ User (one)---- (many) UserVisitEvent (one; displayed)-----------(many) Article
 """
 
 from datetime import datetime
+
+import sys
+import logging
+
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
 
 from sqlalchemy import (
         MetaData,
@@ -25,10 +39,10 @@ from sqlalchemy.orm import (
         sessionmaker,
 )
 from sqlalchemy.ext.declarative import declarative_base
-
 from sample_data import read_user_event, parse_uv_event, extract_data
 
 Base = declarative_base()
+
 
 class User(Base):
     __tablename__ = "user"
@@ -83,16 +97,8 @@ class DBHelper(object):
     DB_NAME = "yahoo_news"
 
     def __init__(self):
-        """TODO: to be defined1. """
-
-        #engine = create_engine("sqlite:///{}".format(self.DB_NAME), echo=True)
         engine = create_engine("sqlite:///{}".format(self.DB_NAME))
         self._engine = engine
-
-        # @todo: remove this
-        # start fresh for eval
-        # Base.metadata.drop_all(engine)
-        # Base.metadata.create_all(engine)
 
         # get table metadata
         meta = MetaData(bind=engine)
@@ -105,7 +111,7 @@ class DBHelper(object):
         # if all tables exist
         if len(meta.sorted_tables) == 0:
             # create from scratch
-            #Base.metadata.create_all(engine)
+            Base.metadata.create_all(engine)
             self._shortlists = {}
             self._articles = set()
 
@@ -124,8 +130,6 @@ class DBHelper(object):
                 self._articles.add(article.id)
 
     def write_user_event(self, parsed_user_event):
-        """
-        """
         uv = parsed_user_event
 
         # create user
@@ -141,11 +145,10 @@ class DBHelper(object):
         self._session.flush()
         user_id = user.id
 
-
         # create article
         for art_id, art_fs in uv["article"].items():
             # check if article already exists
-            if not art_id in self._articles:
+            if art_id not in self._articles:
                 article = Article(id=art_id,
                                   feature_1=art_fs[0],
                                   feature_2=art_fs[1],
@@ -155,7 +158,6 @@ class DBHelper(object):
                                   feature_6=art_fs[5])
                 self._session.add(article)
                 self._articles.add(art_id)
-
 
         # art_ids belonging to current uv's shortlist
         cur_shortlist = set(uv["article"])
@@ -180,9 +182,8 @@ class DBHelper(object):
             # create shortlist article
             for art_id in cur_shortlist:
                 shortlist_art = ShortlistArticle(article_id=art_id,
-                                             shortlist_id=shortlist_id)
+                                                 shortlist_id=shortlist_id)
                 self._session.add(shortlist_art)
-
 
         # create user visit event
         daid = uv["displayed_article_id"]
@@ -195,11 +196,6 @@ class DBHelper(object):
                                   is_clicked=uv["is_clicked"],
                                   datetime=date_time)
         self._session.add(uv_event)
-
-
-        # communicate changes so far to db
-        # self._session.flush()
-
 
 
     @property
@@ -234,16 +230,8 @@ class DBHelperBulk(object):
     DB_NAME = "yahoo_news" + "_bulk"
 
     def __init__(self):
-        """TODO: to be defined1. """
-
-        #engine = create_engine("sqlite:///{}".format(self.DB_NAME), echo=True)
         engine = create_engine("sqlite:///{}".format(self.DB_NAME))
         self._engine = engine
-
-        # @todo: remove this
-        # start fresh for eval
-        # Base.metadata.drop_all(engine)
-        # Base.metadata.create_all(engine)
 
 
         # get table metadata
@@ -254,10 +242,9 @@ class DBHelperBulk(object):
         Session = sessionmaker(bind=engine)
         self._session = Session()
 
-        # if all tables exist
         if len(meta.sorted_tables) == 0:
             # create from scratch
-            #Base.metadata.create_all(engine)
+            Base.metadata.create_all(engine)
             self._shortlists = {}
             self._articles = set()
         else:
@@ -269,7 +256,6 @@ class DBHelperBulk(object):
                 shortlist_sets[sl.id] = set([a.article_id for a in sl_arts])
             self._shortlists = shortlist_sets
 
-
             self._articles = set()
             articles = q(Article).all()
             for article in articles:
@@ -277,9 +263,6 @@ class DBHelperBulk(object):
 
 
     def write_user_event(self, parsed_uv_list):
-        """
-        """
-
         users = []
         # create users
 
@@ -295,10 +278,6 @@ class DBHelperBulk(object):
             users.append(user)
 
         self._session.bulk_save_objects(users, return_defaults=True)
-        #self._session.add_all(users)
-        #self._session.flush()
-        # gives primary key
-
 
         # create articles
         articles = []
@@ -317,8 +296,6 @@ class DBHelperBulk(object):
                     articles.append(article)
                     self._articles.add(art_id)
         self._session.bulk_save_objects(articles)
-        #self._session.add_all(articles)
-
 
         # check for shortlist
         shortlist_articles_raw = []
@@ -344,8 +321,6 @@ class DBHelperBulk(object):
                 shortlist_articles_raw.append( (shortlist, cur_shortlist) )
 
         self._session.bulk_save_objects(shortlists, return_defaults=True)
-        #self._session.add_all(shortlists)
-        #self._session.flush()
 
         # create shortlist article
         shortlist_articles = []
@@ -359,8 +334,6 @@ class DBHelperBulk(object):
             # update the existing shortlist pool
             self._shortlists[shortlist.id] = art_ids
         self._session.bulk_save_objects(shortlist_articles)
-        #self._session.add_all(shortlist_articles)
-
 
         # create user visit event
         uv_events = []
@@ -378,7 +351,6 @@ class DBHelperBulk(object):
             uv_events.append(uv_event)
 
         self._session.bulk_save_objects(uv_events)
-        #self._session.add_all(uv_events)
 
         self._session.flush()
 
@@ -418,15 +390,13 @@ class DBHelperBulk(object):
 
 
 def main():
-    """
+    """Sequential inserts to db.
     """
 
     dbh = DBHelper()
     dbh.reset_all_data()
 
     reader = read_user_event()
-
-    from pprint import pprint
 
     i = 0
     import time
@@ -461,12 +431,13 @@ def main():
 
     dbh._session.commit()
 
+
 def main_bulk():
-    """
-    there is no performance gain.
+    """Bulk inserts into db.
 
-    due to the primary key retreival.
+    It reduces to the sequential version anyway.
 
+    Not so useful.
     """
     from sample_data import read_user_event, parse_uv_event
 
@@ -474,8 +445,6 @@ def main_bulk():
     dbh_bulk.reset_all_data()
 
     reader = read_user_event()
-
-    from pprint import pprint
 
     i = 0
     import time
@@ -503,20 +472,14 @@ def main_bulk():
             # end of file
             break
 
-
     dbh_bulk._session.commit()
 
 
 if __name__ == "__main__":
-    """
-    too slow
-    """
+    logger.info("Exctrating Yahoo Click Log data has started.")
     extract_data()
-
+    logger.info("Writing Yahoo Click Log data to db has started.")
     main()
+    logger.info("Writing Yahoo Click Log data to db has fished.")
     #main_bulk()
-
-
-
-
 

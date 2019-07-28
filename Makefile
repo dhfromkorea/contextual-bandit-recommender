@@ -1,12 +1,13 @@
 # indentation must be taps
 APP_NAME="cb-recommender"
+HOST="localhost"
 TEST_PATH="./tests"
-MUSHROOM_DEST="./datasets/mushroom/mushroom.csv"
+MUSHROOM_DEST="./datautils/mushroom/mushroom.csv"
 MUSHROOM_SOURCE="https://archive.ics.uci.edu/ml/machine-learning-databases/mushroom/agaricus-lepiota.data"
 WINDOW=512
 
-N_TRIALS=3
-N_ROUNDS=10000
+N_TRIALS=1
+N_ROUNDS=600
 
 init:
 	pip install -r requirements.txt
@@ -20,20 +21,27 @@ lint:
 run:
 	python main.py "synthetic" --n_trials $(N_TRIALS) --n_rounds $(N_ROUNDS)
 	python main.py "mushroom" --n_trials $(N_TRIALS) --n_rounds $(N_ROUNDS)
-	python main.py "news" --n_trials $(N_TRIALS) --n_rounds $(N_ROUNDS) --is_acp --grad_clip
+	python main.py "news" --n_trials $(N_TRIALS) --n_rounds $(N_ROUNDS) \
+		--is_acp --grad_clip
 
 plot:
-	python plotting.py "synthetic" --n_trials $(N_TRIALS) --window $(WINDOW)
-	python plotting.py "mushroom" --n_trials $(N_TRIALS) --window $(WINDOW)
-	python plotting.py "news" --n_trials $(N_TRIALS) --window $(WINDOW)
+	python evaluations/plotting.py "synthetic" --n_trials $(N_TRIALS) \
+		--window $(WINDOW)
+	python evaluations/plotting.py "mushroom" --n_trials $(N_TRIALS) \
+		--window $(WINDOW)
+	python evaluations/plotting.py "news" --n_trials $(N_TRIALS) \
+		--window $(WINDOW)
 
 fetch-data:
 	wget -O $(MUSHROOM_DEST) $(MUSHROOM_SOURCE)
 
+# asssumes yahoo_data in datautils/news/dataset.tgz
+process-news-data:
+	python datautils/news/db_tools.py
+
 clean-pyc:
 	find . -name '*.pyc' -delete
 	find . -name '*.pyo' -delete
-
 
 docker-run:
 	docker build \
