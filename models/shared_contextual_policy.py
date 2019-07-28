@@ -12,7 +12,7 @@ from scipy.stats import invgamma
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
-from torch.nn.utils import clip_grad_norm_
+from torch.nn.utils import clip_grad_norm
 
 import logging
 logger = logging.getLogger(__name__ + "shared_contextual_policy")
@@ -402,7 +402,7 @@ class FeedForwardNetwork(nn.Module):
             loss.backward()
 
             if self._grad_clip:
-                clip_grad_norm_(self.model.parameters(), self._grad_clip_value, self._grad_clip_norm)
+                clip_grad_norm(self.model.parameters(), self._grad_clip_value, self._grad_clip_norm)
 
             if self.debug and batch_idx % 10 == 0:
                 for layer in self.model.modules():
