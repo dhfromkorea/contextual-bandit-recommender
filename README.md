@@ -2,7 +2,10 @@
 
 # Recommendater System with Contextual Bandit Algorithms
 
-This repo contains a work-in-progress code for the implementations of commmon contextual bandit algorithms. Check out the [blogpost](http://www.dhfromkorea.com/news-recommendation-with-contextual-bandit/) for the details
+This repo contains a work-in-progress code for the implementations of commmon contextual bandit algorithms. Check out the [blogpost](http://www.dhfromkorea.com/news-recommendation-with-contextual-bandit/) for the details.
+
+Note this project is fresh and totally work in progress. 
+
 ## Getting Started
 
 
